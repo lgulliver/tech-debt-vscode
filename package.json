@@ -182,14 +182,7 @@
       ]
     },
     "configuration": {
-      "title": "Tech Debt Extension",
-      "properties": {
-        "techDebtExtension.githubToken": {
-          "type": "string",
-          "description": "GitHub personal access token",
-          "scope": "resource"
-        }
-      }
+      "title": "Tech Debt Manager"
     }
   },
   "scripts": {

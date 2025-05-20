@@ -13,12 +13,36 @@ let statusBarItem: vscode.StatusBarItem;
 
 // This method is called when your extension is activated
 // Your extension is activated the very first time the command is executed
-export function activate(context: vscode.ExtensionContext) {
+export async function activate(context: vscode.ExtensionContext) {
+	// Get configuration
+	const config = vscode.workspace.getConfiguration('techDebt');
+	const token = config.get<string>('githubToken') || '';
+	let owner = config.get<string>('githubOwner') || '';
+	let repo = config.get<string>('githubRepo') || '';
+	
+	// Initialize GitHub API
+	const githubApi = GitHubAPI.getInstance();
+	
+	try {
+		// Initialize the GitHub API (authentication)
+		if (!await githubApi.initialize()) {
+			throw new Error('Failed to initialize GitHub API authentication');
+		}
+		
+		// Try to detect repository if not configured
+		if (!githubApi.isConfigured()) {
+			if (!await githubApi.initFromWorkspace()) {
+				throw new Error('Failed to configure repository settings');
+			}
+		}
+	} catch (error: any) {
+		const message = 'Failed to initialize GitHub integration: ' + error.message;
+		vscode.window.showErrorMessage(message);
+		console.error(message);
+	}
+	
 	// Use the console to output diagnostic information (console.log) and errors (console.error)
 	console.log('Congratulations, your extension "tech-debt-extension" is now active!');
-
-	// Initialize GitHub API client
-	const githubApi = GitHubAPI.getInstance();
 
 	// Initialize the TreeView provider
 	const techDebtIssuesProvider = new TechDebtIssuesProvider(githubApi);

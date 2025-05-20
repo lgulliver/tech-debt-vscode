@@ -1,10 +1,18 @@
 import * as vscode from 'vscode';
+import * as fs from 'fs';
+import * as path from 'path';
+import { execSync } from 'child_process';
+
 // Import Octokit dynamically to avoid CommonJS/ESM module issues
 type OctokitType = any; // We'll assign this with the dynamic import
 
 export class GitHubAPI {
     private octokit: OctokitType | undefined;
     private static instance: GitHubAPI;
+    private _token: string | undefined;
+    private _owner: string | undefined;
+    private _repo: string | undefined;
+    private _cachedRepoDetails: { owner: string; repo: string } | undefined;
 
     private constructor() {}
 
@@ -16,25 +24,64 @@ export class GitHubAPI {
     }
 
     /**
-     * Initialize the GitHub API client with an access token
+     * Initialize the GitHub API client
      */
     public async initialize(): Promise<boolean> {
         try {
             // Use VS Code's built-in GitHub authentication provider
             const session = await vscode.authentication.getSession('github', ['repo'], { createIfNone: true });
-            
-            if (session) {
-                // Dynamically import Octokit
-                const { Octokit } = await import('@octokit/rest');
-                this.octokit = new Octokit({ 
-                    auth: session.accessToken 
-                });
-                return true;
+            if (!session) {
+                throw new Error('GitHub authentication is required');
             }
-            return false;
+
+            // Initialize Octokit with the session token
+            const { Octokit } = await import('@octokit/rest');
+            this.octokit = new Octokit({ 
+                auth: session.accessToken 
+            });
+            this._token = session.accessToken;
+
+            // Get repository information
+            const repoInfo = await this.detectRepositoryDetails();
+            if (!repoInfo) {
+                throw new Error('Could not detect GitHub repository. Please open a folder containing a GitHub repository.');
+            }
+
+            this._owner = repoInfo.owner;
+            this._repo = repoInfo.repo;
+            this._cachedRepoDetails = repoInfo;
+
+            return true;
         } catch (error) {
             console.error('Failed to initialize GitHub API:', error);
             throw error;
+        }
+    }
+
+    /**
+     * Get repository details
+     */
+    private async detectRepositoryDetails(): Promise<{ owner: string; repo: string } | null> {
+        try {
+            // Try the Git extension first
+            const gitExtension = vscode.extensions.getExtension('vscode.git')?.exports;
+            if (gitExtension) {
+                const api = gitExtension.getAPI(1);
+                const repositories = api.repositories;
+
+                if (repositories?.[0]) {
+                    const remoteUrl = await repositories[0].getConfig('remote.origin.url');
+                    if (remoteUrl) {
+                        return this.parseGitHubUrl(remoteUrl);
+                    }
+                }
+            }
+
+            // Fall back to workspace detection if Git extension fails
+            return await GitHubAPI.detectRepositoryFromWorkspace();
+        } catch (error) {
+            console.error('Error detecting repository details:', error);
+            return null;
         }
     }
 
@@ -100,67 +147,13 @@ export class GitHubAPI {
     }
 
     /**
-     * Get repository details from the current workspace
+     * Get repository details
      */
     public async getRepoDetails(): Promise<{ owner: string; repo: string }> {
-        try {
-            // Get the workspace folder (assume the first one is the git repo)
-            const workspaceFolders = vscode.workspace.workspaceFolders;
-            if (!workspaceFolders || workspaceFolders.length === 0) {
-                throw new Error('No workspace folder open.');
-            }
-
-            const workspaceRoot = workspaceFolders[0].uri.fsPath;
-            
-            // Try to activate Git extension first
-            try {
-                await vscode.commands.executeCommand('git.refresh');
-            } catch (e) {
-                // Ignore activation errors
-                console.log('Git extension activation error, continuing with fallback approach', e);
-            }
-
-            // Use git extension API to get repo info
-            const gitExtension = vscode.extensions.getExtension('vscode.git')?.exports;
-            if (!gitExtension) {
-                // Fallback to manual input if Git extension is not available
-                return await this.getRepoDetailsManually();
-            }
-
-            try {
-                const api = gitExtension.getAPI(1);
-                const repositories = api.repositories;
-                
-                if (!repositories || repositories.length === 0) {
-                    return await this.getRepoDetailsManually('No Git repository found in the workspace');
-                }
-
-                // Find the repository matching our workspace
-                const repository = repositories.find((repo: any) => repo.rootUri.fsPath === workspaceRoot);
-                if (!repository) {
-                    return await this.getRepoDetailsManually('No Git repository found for the current workspace');
-                }
-
-                const remoteUrl = await repository.getConfig('remote.origin.url');
-                if (!remoteUrl) {
-                    return await this.getRepoDetailsManually('No remote URL found for this repository');
-                }
-
-                console.log(`Detected Git remote URL: ${remoteUrl}`);
-                
-                // Parse the GitHub URL to get owner and repo
-                const repoDetails = this.parseGitHubUrl(remoteUrl);
-                console.log(`Parsed repository details - Owner: ${repoDetails.owner}, Repo: ${repoDetails.repo}`);
-                
-                return repoDetails;
-            } catch (error: any) {
-                console.error('Error accessing Git repository:', error);
-                return await this.getRepoDetailsManually(error.message || 'Unknown Git error');
-            }
-        } catch (error) {
-            console.error('Error getting repository details:', error);
-            throw error;
+        if (!this._cachedRepoDetails) {
+            throw new Error('Repository details not available. Please open a GitHub repository.');
         }
+        return this._cachedRepoDetails;
     }
 
     /**
@@ -423,5 +416,121 @@ export class GitHubAPI {
             console.error('Error reopening GitHub issue:', error);
             throw error;
         }
+    }
+
+    /**
+     * Detects GitHub repository information from the current workspace
+     * @returns {Promise<{owner: string, repo: string} | null>} Repository information or null if not detected
+     */
+    public static async detectRepositoryFromWorkspace(): Promise<{owner: string, repo: string} | null> {
+        try {
+            const workspaceFolders = vscode.workspace.workspaceFolders;
+            if (!workspaceFolders || workspaceFolders.length === 0) {
+                return null;
+            }
+            
+            const workspaceRoot = workspaceFolders[0].uri.fsPath;
+            
+            // Method 1: Try to read .git/config file
+            try {
+                const gitConfigPath = path.join(workspaceRoot, '.git', 'config');
+                if (fs.existsSync(gitConfigPath)) {
+                    const configContent = fs.readFileSync(gitConfigPath, 'utf8');
+                    const remoteUrlMatch = configContent.match(/\[remote "[^"]+"\][\s\S]*?url = (?:https:\/\/github\.com\/|git@github\.com:)([^\/]+)\/([^\.]+)(?:\.git)?/);
+                    
+                    if (remoteUrlMatch && remoteUrlMatch.length >= 3) {
+                        return {
+                            owner: remoteUrlMatch[1],
+                            repo: remoteUrlMatch[2]
+                        };
+                    }
+                }
+            } catch (err) {
+                // Silently fail and try next method
+            }
+            
+            // Method 2: Try using git command
+            try {
+                const gitRemoteOutput = execSync('git remote -v', { cwd: workspaceRoot, encoding: 'utf8' });
+                const gitRemoteMatch = gitRemoteOutput.match(/origin\s+(?:https:\/\/github\.com\/|git@github\.com:)([^\/]+)\/([^\.]+)(?:\.git)?/);
+                
+                if (gitRemoteMatch && gitRemoteMatch.length >= 3) {
+                    return {
+                        owner: gitRemoteMatch[1],
+                        repo: gitRemoteMatch[2]
+                    };
+                }
+            } catch (err) {
+                // Silently fail and try next method
+            }
+            
+            return null;
+        } catch (error) {
+            console.error('Error detecting repository:', error);
+            return null;
+        }
+    }
+    
+    /**
+     * Update repository configuration
+     */
+    public setRepositoryInfo(owner: string, repo: string): void {
+        this._owner = owner;
+        this._repo = repo;
+    }
+
+    /**
+     * Get current repository configuration
+     */
+    public getRepositoryInfo(): { owner: string | undefined; repo: string | undefined } {
+        return {
+            owner: this._owner,
+            repo: this._repo
+        };
+    }
+
+    /**
+     * Update repository configuration in VS Code settings
+     */
+    private async updateRepositoryConfig(owner: string, repo: string): Promise<void> {
+        const config = vscode.workspace.getConfiguration('techDebt');
+        await config.update('githubOwner', owner, vscode.ConfigurationTarget.Global);
+        await config.update('githubRepo', repo, vscode.ConfigurationTarget.Global);
+        this.setRepositoryInfo(owner, repo);
+    }
+    
+    /**
+     * Initialize the API with repository information from the workspace
+     */
+    public async initFromWorkspace(): Promise<boolean> {
+        try {
+            // Try to detect from workspace
+            const repoInfo = await GitHubAPI.detectRepositoryFromWorkspace();
+            if (repoInfo) {
+                this._owner = repoInfo.owner;
+                this._repo = repoInfo.repo;
+                return true;
+            }
+            
+            // If detection fails, prompt user
+            const manualInfo = await this.getRepoDetailsManually();
+            if (manualInfo) {
+                this._owner = manualInfo.owner;
+                this._repo = manualInfo.repo;
+                return true;
+            }
+            
+            return false;
+        } catch (error) {
+            console.error('Error initializing from workspace:', error);
+            return false;
+        }
+    }
+    
+    /**
+     * Check if the API is properly configured
+     */
+    public isConfigured(): boolean {
+        return Boolean(this._token && this._owner && this._repo);
     }
 }

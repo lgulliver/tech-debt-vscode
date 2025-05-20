@@ -136,34 +136,64 @@ export class IssueFormPanel {
                 return;
             }
 
+            // Ensure GitHub API is configured
+            if (!this._githubApi.isConfigured()) {
+                // Try to auto-detect repository
+                const detected = await this._githubApi.initFromWorkspace();
+                if (!detected) {
+                    vscode.window.showErrorMessage(
+                        'Unable to determine GitHub repository. Please configure repository settings in extension preferences.',
+                        'Open Settings'
+                    ).then(result => {
+                        if (result === 'Open Settings') {
+                            vscode.commands.executeCommand('workbench.action.openSettings', 'techDebt');
+                        }
+                    });
+                    return;
+                }
+            }
+
             // Show progress indicator
-            await vscode.window.withProgress(
+            let progressResolve: (() => void) | undefined;
+            const progressPromise = new Promise<void>(resolve => { progressResolve = resolve; });
+
+            // Show progress notification, but keep control to dismiss it manually
+            vscode.window.withProgress(
                 {
                     location: vscode.ProgressLocation.Notification,
                     title: 'Creating tech debt issue...',
                     cancellable: false
                 },
                 async () => {
-                    const issue = await this._githubApi.createIssue(title, description);
-                    
-                    // Show success message with link to the created issue
-                    const viewAction = 'View Issue';
-                    const result = await vscode.window.showInformationMessage(
-                        `Tech debt issue #${issue.number} created successfully!`,
-                        viewAction
-                    );
-                    
-                    if (result === viewAction) {
-                        vscode.env.openExternal(vscode.Uri.parse(issue.url));
-                    }
-                    
-                    // Refresh the tree view
-                    this._techDebtIssuesProvider.refresh();
-                    
-                    // Close the form panel
-                    this.dispose();
+                    await progressPromise;
                 }
             );
+
+            // Actually create the issue
+            const issue = await this._githubApi.createIssue(title, description);
+
+            // Close the form panel immediately after creation
+            this.dispose();
+
+            // Dismiss the progress notification
+            if (progressResolve) {progressResolve();}
+
+            // Show success message with link to the created issue
+            const viewAction = 'View Issue';
+            const toast = vscode.window.showInformationMessage(
+                `Tech debt issue #${issue.number} created successfully!`,
+                viewAction
+            );
+
+            // Wait for the toast to be shown and user to interact or ignore
+            const result = await toast;
+            if (result === viewAction) {
+                vscode.env.openExternal(vscode.Uri.parse(issue.url));
+            }
+
+            // Pause briefly before refreshing the filter (tree view)
+            await new Promise(resolve => setTimeout(resolve, 800));
+            this._techDebtIssuesProvider.refresh();
         } catch (error: any) {
             vscode.window.showErrorMessage(`Failed to create tech debt issue: ${error.message}`);
         }
