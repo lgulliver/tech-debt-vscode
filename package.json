@@ -1,0 +1,229 @@
+{
+  "name": "tech-debt-extension",
+  "displayName": "Tech Debt Manager",
+  "description": "Create, view, and manage technical debt issues in GitHub from inside VS Code",
+  "version": "0.2.1",
+  "license": "MIT",
+  "publisher": "liamgulliver",
+  "author": {
+    "name": "Liam Gulliver"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/LiamGulliver/tech-debt-extension"
+  },
+  "engines": {
+    "vscode": "^1.100.0"
+  },
+  "categories": [
+    "Other",
+    "SCM Providers"
+  ],
+  "keywords": [
+    "github",
+    "issues",
+    "tech-debt",
+    "technical-debt",
+    "management"
+  ],
+  "preview": true,
+  "activationEvents": [],
+  "main": "./dist/extension.js",
+  "extensionDependencies": [
+    "vscode.git"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "tech-debt-extension.createTechDebtIssue",
+        "title": "Create Tech Debt Issue",
+        "icon": "$(add)"
+      },
+      {
+        "command": "tech-debt-extension.viewTechDebtIssues",
+        "title": "View Tech Debt Issues",
+        "icon": "$(list-unordered)"
+      },
+      {
+        "command": "tech-debt-extension.refreshTechDebtIssues",
+        "title": "Refresh Tech Debt Issues",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "tech-debt-extension.commentOnIssue",
+        "title": "Comment on Issue",
+        "icon": "$(comment)"
+      },
+      {
+        "command": "tech-debt-extension.viewIssueDetails",
+        "title": "View Issue Details",
+        "icon": "$(preview)"
+      },
+      {
+        "command": "tech-debt-extension.filterIssues",
+        "title": "Filter Issues",
+        "icon": "$(filter)"
+      },
+      {
+        "command": "tech-debt-extension.showOpenIssues",
+        "title": "Show Open Issues",
+        "icon": "$(issue-opened)"
+      },
+      {
+        "command": "tech-debt-extension.showClosedIssues",
+        "title": "Show Closed Issues",
+        "icon": "$(issue-closed)"
+      },
+      {
+        "command": "tech-debt-extension.editIssue",
+        "title": "Edit Issue",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "tech-debt-extension.closeIssue",
+        "title": "Close Issue",
+        "icon": "$(issues-closed)"
+      },
+      {
+        "command": "tech-debt-extension.reopenIssue",
+        "title": "Reopen Issue",
+        "icon": "$(issue-reopened)"
+      }
+    ],
+    "views": {
+      "explorer": [
+        {
+          "id": "techDebtIssues",
+          "name": "Tech Debt Issues",
+          "icon": "$(issues)"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "tech-debt-extension.createTechDebtIssue",
+          "when": "view == techDebtIssues",
+          "group": "navigation"
+        },
+        {
+          "command": "tech-debt-extension.refreshTechDebtIssues",
+          "when": "view == techDebtIssues",
+          "group": "navigation"
+        },
+        {
+          "command": "tech-debt-extension.filterIssues",
+          "when": "view == techDebtIssues",
+          "group": "navigation"
+        },
+        {
+          "command": "tech-debt-extension.showOpenIssues",
+          "when": "view == techDebtIssues",
+          "group": "filter@1"
+        },
+        {
+          "command": "tech-debt-extension.showClosedIssues",
+          "when": "view == techDebtIssues",
+          "group": "filter@2"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "tech-debt-extension.commentOnIssue",
+          "when": "view == techDebtIssues && viewItem == techDebtIssue",
+          "group": "inline"
+        },
+        {
+          "command": "tech-debt-extension.viewIssueDetails",
+          "when": "view == techDebtIssues && viewItem == techDebtIssue",
+          "group": "navigation"
+        },
+        {
+          "command": "tech-debt-extension.editIssue",
+          "when": "view == techDebtIssues && viewItem =~ /techDebtIssue/",
+          "group": "inline"
+        },
+        {
+          "command": "tech-debt-extension.closeIssue",
+          "when": "view == techDebtIssues && viewItem == techDebtIssue-open",
+          "group": "inline"
+        },
+        {
+          "command": "tech-debt-extension.reopenIssue",
+          "when": "view == techDebtIssues && viewItem == techDebtIssue-closed",
+          "group": "inline"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "tech-debt-extension.createTechDebtIssue",
+          "when": "workspaceHasGit"
+        },
+        {
+          "command": "tech-debt-extension.viewTechDebtIssues",
+          "when": "workspaceHasGit"
+        },
+        {
+          "command": "tech-debt-extension.refreshTechDebtIssues",
+          "when": "view == techDebtIssues && workspaceHasGit"
+        },
+        {
+          "command": "tech-debt-extension.editIssue",
+          "when": "false"
+        },
+        {
+          "command": "tech-debt-extension.closeIssue",
+          "when": "false"
+        },
+        {
+          "command": "tech-debt-extension.reopenIssue",
+          "when": "false"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Tech Debt Extension",
+      "properties": {
+        "techDebtExtension.githubToken": {
+          "type": "string",
+          "description": "GitHub personal access token",
+          "scope": "resource"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "yarn run package",
+    "compile": "webpack",
+    "watch": "webpack --watch",
+    "package": "webpack --mode production --devtool hidden-source-map",
+    "compile-tests": "tsc -p . --outDir out",
+    "watch-tests": "tsc -p . -w --outDir out",
+    "pretest": "yarn run compile-tests && yarn run compile && yarn run lint",
+    "lint": "eslint src",
+    "test": "vscode-test",
+    "build-vsix": "vsce package"
+  },
+  "devDependencies": {
+    "@types/mocha": "^10.0.10",
+    "@types/node": "20.x",
+    "@types/sinon": "^17.0.4",
+    "@types/vscode": "^1.100.0",
+    "@typescript-eslint/eslint-plugin": "^8.31.1",
+    "@typescript-eslint/parser": "^8.31.1",
+    "@vscode/test-cli": "^0.0.10",
+    "@vscode/test-electron": "^2.5.2",
+    "@vscode/vsce": "^3.4.1",
+    "eslint": "^9.25.1",
+    "sinon": "^20.0.0",
+    "ts-loader": "^9.5.2",
+    "typescript": "^5.8.3",
+    "webpack": "^5.99.7",
+    "webpack-cli": "^6.0.1"
+  },
+  "packageManager": "yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e",
+  "dependencies": {
+    "@octokit/rest": "^21.1.1"
+  },
+  "type": "commonjs"
+}
