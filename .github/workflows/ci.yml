@@ -2,6 +2,10 @@
 
 on:
   push:
+    paths:
+      - 'src/**'
+      - 'package.json'
+      - 'yarn.lock'
 
 jobs:
   run-ci:

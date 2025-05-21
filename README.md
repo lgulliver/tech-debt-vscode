@@ -4,16 +4,20 @@ A VS Code extension that allows you to create and manage GitHub issues tagged as
 
 ## Features
 
-- **Create Tech Debt Issues**: Create GitHub issues tagged as tech-debt directly from VS Code with a user-friendly form.
-- **View Tech Debt Issues**: View all tech-debt issues for your current repository in a dedicated tree view.
-- **Edit Tech Debt Issues**: Update the title and description of existing tech debt issues with an intuitive editor.
-- **Close/Reopen Issues**: Manage the state of tech debt issues directly from VS Code.
-- **Comment on Issues**: Add comments to tech debt issues without leaving VS Code using the rich comment interface.
-- **Filter Issues**: Filter tech debt issues by state (open/closed), creator, or assignee.
-- **Easy Navigation**: Click on any issue to open it in your browser.
-- **Detailed View**: View issue details in a rich formatted panel within VS Code.
-- **Similar Issue Detection**: Automatically detect and show similar issues when creating new tech debt items.
-- **Markdown Templates**: Quick access to templates for better formatting of issues and comments.
+- [x] **Create Tech Debt Issues**: Create GitHub issues tagged as tech-debt directly from VS Code with a user-friendly form.
+- [x] **View Tech Debt Issues**: View all tech-debt issues for your current repository in a dedicated tree view.
+- [x] **Easy Navigation**: Click on any issue to open it in your browser.
+- [x] **Similar Issue Detection**: Automatically detect and show similar issues when creating new tech debt items.
+
+## Planned Features
+
+- [ ] **Detailed View**: View issue details in a rich formatted panel within VS Code.
+- [ ] **Edit Tech Debt Issues**: Update the title and description of existing tech debt issues with an intuitive editor.
+- [ ]**Close/Reopen Issues**: Manage the state of tech debt issues directly from VS Code.
+- [ ] **Comment on Issues**: Add comments to tech debt issues without leaving VS Code using the rich comment interface.
+- [ ] **Custom Labels**: Support for custom labels beyond "tech-debt" in future versions.
+- [ ] **Enterprise Support**: Support for GitHub Enterprise URLs and custom SSH configurations.
+- [ ] **Filter Issues**: Filter tech debt issues by state (open/closed), creator, or assignee.
 
 ## Requirements
 
