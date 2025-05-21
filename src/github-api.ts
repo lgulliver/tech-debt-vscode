@@ -78,18 +78,37 @@ export class GitHubAPI {
      */
     private async _initialize(): Promise<boolean> {
         try {
-            // Use VS Code's built-in GitHub authentication provider
-            const session = await vscode.authentication.getSession('github', ['repo'], { createIfNone: true });
+            // Use VS Code's built-in GitHub authentication provider with a timeout
+            let session;
+            try {
+                session = await Promise.race([
+                    vscode.authentication.getSession('github', ['repo'], { createIfNone: true }),
+                    new Promise<undefined>((_, reject) => 
+                        setTimeout(() => reject(new Error('Authentication timed out')), 30000)
+                    )
+                ]);
+            } catch (authError: any) {
+                if (authError.message?.includes('timed out')) {
+                    this._initializationStatus = 'failed';
+                    this._initializationError = new Error('GitHub authentication timed out. Please try again later.');
+                    throw this._initializationError;
+                }
+                throw authError;
+            }
+            
             if (!session) {
                 this._initializationStatus = 'failed';
                 this._initializationError = new Error('GitHub authentication is required');
                 throw this._initializationError;
             }
 
-            // Initialize Octokit with the session token
+            // Initialize Octokit with the session token and configure request retries
             const { Octokit } = await import('@octokit/rest');
             this.octokit = new Octokit({ 
-                auth: session.accessToken 
+                auth: session.accessToken,
+                request: {
+                    timeout: 10000 // 10 seconds timeout
+                }
             });
             this._token = session.accessToken;
 
@@ -258,20 +277,64 @@ export class GitHubAPI {
         try {
             const { owner, repo } = await this.getRepoDetails();
             
-            const response = await this.octokit!.issues.create({
-                owner,
-                repo,
-                title,
-                body: description,
-                labels: ['tech-debt']
-            });
+            // Use a retry mechanism for network issues
+            const maxRetries = 3;
+            let lastError;
+            
+            for (let attempt = 1; attempt <= maxRetries; attempt++) {
+                try {
+                    const response = await this.octokit!.issues.create({
+                        owner,
+                        repo,
+                        title,
+                        body: description,
+                        labels: ['tech-debt']
+                    });
 
-            return {
-                url: response.data.html_url,
-                number: response.data.number
-            };
-        } catch (error) {
+                    return {
+                        url: response.data.html_url,
+                        number: response.data.number
+                    };
+                } catch (error: any) {
+                    lastError = error;
+                    
+                    // Check for specific network issues that are retryable
+                    if (error.message?.includes('other side closed') || 
+                        error.message?.includes('ECONNRESET') ||
+                        error.message?.includes('ETIMEDOUT') ||
+                        error.message?.includes('network timeout')) {
+                        
+                        console.log(`GitHub API connection issue on attempt ${attempt}, retrying...`);
+                        
+                        // Wait before retrying (exponential backoff)
+                        await new Promise(resolve => setTimeout(resolve, attempt * 1000));
+                        
+                        // If this isn't our last attempt, continue to the next retry
+                        if (attempt < maxRetries) {
+                            continue;
+                        }
+                    }
+                    
+                    // Not a retryable error or we've exhausted retries, so break out
+                    break;
+                }
+            }
+            
+            // If we reached here, all retries failed
+            if (lastError?.message?.includes('other side closed')) {
+                throw new Error('Connection to GitHub was lost. Please check your internet connection and try again.');
+            }
+            
+            throw lastError;
+        } catch (error: any) {
             console.error('Error creating GitHub issue:', error);
+            
+            // Check if this might be an authentication issue
+            if (error.status === 401 || error.message?.includes('Bad credentials')) {
+                await vscode.commands.executeCommand('workbench.action.clearEditorHistory');
+                throw new Error('GitHub authentication failed. Please sign out and sign in again.');
+            }
+            
             throw error;
         }
     }

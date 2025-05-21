@@ -114,7 +114,8 @@ export async function activate(context: vscode.ExtensionContext) {
 				githubApi, 
 				item.issue.number, 
 				item.issue.title,
-				''
+				'',
+				techDebtIssuesProvider
 			);
 		} catch (error: any) {
 			vscode.window.showErrorMessage(`Failed to add comment: ${error.message}`);

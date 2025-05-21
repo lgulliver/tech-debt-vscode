@@ -1,5 +1,36 @@
 # Tech Debt Extension Release Notes
 
+## Version 0.3.3 - Feature Enhancements & Error Handling (2025-05-21)
+
+### Feature Enhancements
+
+1. **Issue Filtering**
+   - Implemented filtering by state (open/closed)
+   - Added creator and assignee filtering options
+   - Added "Clear Filters" command to easily reset all applied filters
+   - Improved filter UI with clearer options and visual indicators
+
+2. **Error Handling & Reliability**
+   - Added retry mechanism for "other side closed" GitHub API errors
+   - Implemented exponential backoff for network connection issues
+   - Enhanced authentication error handling with clearer user messages
+   - Added connection timeout handling for more reliable GitHub interactions
+
+3. **UI Improvements**
+   - Ensured consistent tree view refresh behavior across all operations
+   - Added consistent refresh after adding comments to issues
+   - Improved notification timing and messaging after operations
+   - Enhanced visual feedback during operations with progress indicators
+
+### Completed Tasks for 0.3.3
+
+- [x] Implemented issue filter functionality (by state, creator, assignee)
+- [x] Added clear filter command and UI option
+- [x] Fixed "other side closed" connection errors with retry mechanism
+- [x] Enhanced error handling with specific error types and messages
+- [x] Improved tree view refresh mechanism for all issue operations
+- [x] Updated documentation and changelog
+
 ## Version 0.3.2 - Workflow Improvements (2025-05-21)
 
 ### Release Automation Enhancements

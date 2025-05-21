@@ -9,6 +9,14 @@ All notable changes to the "tech-debt-extension" extension will be documented in
 - Implemented issue filtering by state (open/closed), creator, and assignee
 - Added "Clear Filters" command to easily reset all applied filters
 
+### Fixed
+
+- Improved error handling for network connection issues
+- Added retry mechanism for "other side closed" GitHub API errors
+- Enhanced authentication error handling with clearer user messages
+- Added connection timeout handling for more reliable GitHub interactions
+- Ensured consistent tree view refresh behavior after all issue operations including comments
+
 ## [0.3.2] - 2025-05-21
 
 ### Added

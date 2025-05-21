@@ -153,49 +153,90 @@ export class IssueFormPanel {
                 }
             }
 
-            // Show progress indicator
-            let progressResolve: (() => void) | undefined;
-            const progressPromise = new Promise<void>(resolve => { progressResolve = resolve; });
-
-            // Show progress notification, but keep control to dismiss it manually
-            vscode.window.withProgress(
+            // Create a progress notification
+            await vscode.window.withProgress(
                 {
                     location: vscode.ProgressLocation.Notification,
                     title: 'Creating tech debt issue...',
                     cancellable: false
                 },
                 async () => {
-                    await progressPromise;
+                    try {
+                        // Actually create the issue
+                        const issue = await this._githubApi.createIssue(title, description);
+                        
+                        // Close the form panel immediately after creation
+                        this.dispose();
+                        
+                        // Show success message with link to the created issue
+                        const viewAction = 'View Issue';
+                        const toast = await vscode.window.showInformationMessage(
+                            `Tech debt issue #${issue.number} created successfully!`,
+                            viewAction
+                        );
+                        
+                        // Open the issue in browser if requested
+                        if (toast === viewAction) {
+                            vscode.env.openExternal(vscode.Uri.parse(issue.url));
+                        }
+                        
+                        // Pause briefly before refreshing the filter (tree view)
+                        await new Promise(resolve => setTimeout(resolve, 800));
+                        this._techDebtIssuesProvider.refresh();
+                        
+                    } catch (apiError: any) {
+                        console.error('Error creating issue:', apiError);
+                        
+                        // Handle specific errors
+                        if (apiError.message?.includes('other side closed') || 
+                            apiError.message?.includes('ECONNRESET') || 
+                            apiError.message?.includes('network')) {
+                            
+                            const retry = 'Retry';
+                            const response = await vscode.window.showErrorMessage(
+                                'Connection to GitHub was lost. Please check your internet connection.',
+                                retry
+                            );
+                            
+                            if (response === retry) {
+                                // Keep the form open and let them try again
+                                return;
+                            }
+                        } else if (apiError.message?.includes('authentication') || apiError.status === 401) {
+                            const signIn = 'Sign In Again';
+                            const response = await vscode.window.showErrorMessage(
+                                'GitHub authentication failed. You may need to sign in again.',
+                                signIn
+                            );
+                            
+                            if (response === signIn) {
+                                // Force a new sign-in by clearing the session
+                                try {
+                                    // Get the current session and clear it
+                                    const session = await vscode.authentication.getSession('github', ['repo'], { createIfNone: false });
+                                    if (session) {
+                                        // For VS Code API we only need to request a new session
+                                        // which will prompt the user to sign in again
+                                        await vscode.authentication.getSession('github', ['repo'], { forceNewSession: true });
+                                    }
+                                } catch (error) {
+                                    console.error('Error managing authentication session:', error);
+                                }
+                                // The form will be kept open, they can try again after signing in
+                                return;
+                            }
+                        } else {
+                            // Generic error handling
+                            vscode.window.showErrorMessage(`Failed to create tech debt issue: ${apiError.message}`);
+                        }
+                        
+                        throw apiError; // Re-throw to signal the operation failed
+                    }
                 }
             );
-
-            // Actually create the issue
-            const issue = await this._githubApi.createIssue(title, description);
-
-            // Close the form panel immediately after creation
-            this.dispose();
-
-            // Dismiss the progress notification
-            if (progressResolve) {progressResolve();}
-
-            // Show success message with link to the created issue
-            const viewAction = 'View Issue';
-            const toast = vscode.window.showInformationMessage(
-                `Tech debt issue #${issue.number} created successfully!`,
-                viewAction
-            );
-
-            // Wait for the toast to be shown and user to interact or ignore
-            const result = await toast;
-            if (result === viewAction) {
-                vscode.env.openExternal(vscode.Uri.parse(issue.url));
-            }
-
-            // Pause briefly before refreshing the filter (tree view)
-            await new Promise(resolve => setTimeout(resolve, 800));
-            this._techDebtIssuesProvider.refresh();
         } catch (error: any) {
-            vscode.window.showErrorMessage(`Failed to create tech debt issue: ${error.message}`);
+            console.error('Form error:', error);
+            vscode.window.showErrorMessage(`An unexpected error occurred: ${error.message}`);
         }
     }
 

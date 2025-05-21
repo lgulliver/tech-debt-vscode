@@ -24,7 +24,8 @@ export class CommentFormPanel {
         githubApi: GitHubAPI,
         issueNumber: number,
         issueTitle: string,
-        initialContent: string = ''
+        initialContent: string = '',
+        techDebtIssuesProvider: any = null
     ) {
         const column = vscode.window.activeTextEditor
             ? vscode.window.activeTextEditor.viewColumn
@@ -54,7 +55,7 @@ export class CommentFormPanel {
             }
         );
 
-        CommentFormPanel.currentPanel = new CommentFormPanel(panel, extensionUri, githubApi, issueNumber, issueTitle);
+        CommentFormPanel.currentPanel = new CommentFormPanel(panel, extensionUri, githubApi, issueNumber, issueTitle, techDebtIssuesProvider);
         CommentFormPanel.currentPanel.updateForm(issueNumber, issueTitle, initialContent);
     }
 
@@ -63,7 +64,8 @@ export class CommentFormPanel {
         extensionUri: vscode.Uri, 
         githubApi: GitHubAPI,
         issueNumber: number,
-        issueTitle: string
+        issueTitle: string,
+        private readonly _techDebtIssuesProvider: any = null
     ) {
         this._panel = panel;
         this._extensionUri = extensionUri;
@@ -128,6 +130,20 @@ export class CommentFormPanel {
                     
                     if (result === viewAction) {
                         vscode.env.openExternal(vscode.Uri.parse(commentResult.url));
+                    }
+                    
+                    // Refresh the tree view after a short delay
+                    // This keeps behavior consistent with other operations
+                    await new Promise(resolve => setTimeout(resolve, 800));
+                    if (this._techDebtIssuesProvider) {
+                        this._techDebtIssuesProvider.refresh();
+                    }
+                    
+                    // Refresh the tree view after a short delay
+                    // This keeps behavior consistent with other operations
+                    await new Promise(resolve => setTimeout(resolve, 800));
+                    if (this._techDebtIssuesProvider) {
+                        this._techDebtIssuesProvider.refresh();
                     }
                     
                     // Close the form panel
