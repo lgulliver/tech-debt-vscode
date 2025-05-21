@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import escapeJs from 'js-string-escape';
 import { GitHubAPI } from './github-api';
 
 /**
@@ -270,7 +271,7 @@ export class IssueDetailsPanel {
                         vscode.postMessage({
                             command: 'addComment',
                             issueNumber: ${issue.number},
-                            issueTitle: '${issue.title.replace(/'/g, "\\'")}'
+                            issueTitle: '${escapeJs(issue.title)}'
                         });
                     });
                     
@@ -278,7 +279,7 @@ export class IssueDetailsPanel {
                         vscode.postMessage({
                             command: 'editIssue',
                             issueNumber: ${issue.number},
-                            issueTitle: '${issue.title.replace(/'/g, "\\'")}',
+                            issueTitle: '${escapeJs(issue.title)}',
                             issueState: '${issue.state}'
                         });
                     });
@@ -288,7 +289,7 @@ export class IssueDetailsPanel {
                         vscode.postMessage({
                             command: 'closeIssue',
                             issueNumber: ${issue.number},
-                            issueTitle: '${issue.title.replace(/'/g, "\\'")}',
+                            issueTitle: '${escapeJs(issue.title)}',
                         });
                     });
                     ` : `
@@ -296,7 +297,7 @@ export class IssueDetailsPanel {
                         vscode.postMessage({
                             command: 'reopenIssue',
                             issueNumber: ${issue.number},
-                            issueTitle: '${issue.title.replace(/'/g, "\\'")}',
+                            issueTitle: '${escapeJs(issue.title)}',
                         });
                     });
                     `}
