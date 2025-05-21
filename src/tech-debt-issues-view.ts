@@ -87,13 +87,56 @@ export class TechDebtIssuesProvider implements vscode.TreeDataProvider<TechDebtI
             return [];
         }
 
+        // Create a default loading item
+        const loadingItem = new vscode.TreeItem("Loading tech debt issues...");
+        
         try {
-            await this.githubApi.initialize();
+            // Try to initialize GitHub API - this might fail if VS Code is still starting up
+            try {
+                await this.githubApi.initialize();
+            } catch (initError: any) {
+                // On initialization error, return a friendly message instead of showing an error dialog
+                const errorIssueData = {
+                    title: "GitHub connection not available yet",
+                    state: "open",
+                    number: 0,
+                    created_at: new Date().toISOString(),
+                    html_url: ""
+                };
+                
+                const errorItem = new TechDebtIssueItem(
+                    "GitHub connection not available yet", 
+                    vscode.TreeItemCollapsibleState.None,
+                    errorIssueData
+                );
+                errorItem.tooltip = "The connection to GitHub couldn't be established yet. This may resolve automatically once VS Code is fully loaded, or you can try refreshing.";
+                errorItem.command = {
+                    command: 'tech-debt-extension.refreshTechDebtIssues',
+                    title: 'Refresh Tech Debt Issues'
+                };
+                errorItem.iconPath = new vscode.ThemeIcon('refresh');
+                return [errorItem];
+            }
+            
+            // Try to fetch tech debt issues
             const issues = await this.githubApi.getTechDebtIssuesWithFilter(this._filter);
             
             if (issues.length === 0) {
-                vscode.window.showInformationMessage(`No tech debt issues found with the current filter.`);
-                return [];
+                const noIssuesData = {
+                    title: "No tech debt issues found",
+                    state: "open",
+                    number: 0,
+                    created_at: new Date().toISOString(),
+                    html_url: ""
+                };
+                
+                const noIssuesItem = new TechDebtIssueItem(
+                    "No tech debt issues found",
+                    vscode.TreeItemCollapsibleState.None,
+                    noIssuesData
+                );
+                noIssuesItem.tooltip = "No tech debt issues found with the current filter.";
+                return [noIssuesItem];
             }
             
             return issues.map(issue => new TechDebtIssueItem(
@@ -101,9 +144,31 @@ export class TechDebtIssuesProvider implements vscode.TreeDataProvider<TechDebtI
                 vscode.TreeItemCollapsibleState.None,
                 issue
             ));
-        } catch (error) {
-            vscode.window.showErrorMessage(`Error loading tech debt issues: ${error}`);
-            return [];
+        } catch (error: any) {
+            // Handle errors gracefully with a message in the tree view instead of an error dialog
+            console.error('Error fetching tech debt issues:', error);
+            
+            const errorData = {
+                title: "Couldn't load tech debt issues",
+                state: "open",
+                number: 0,
+                created_at: new Date().toISOString(),
+                html_url: ""
+            };
+            
+            const errorItem = new TechDebtIssueItem(
+                "Couldn't load tech debt issues", 
+                vscode.TreeItemCollapsibleState.None,
+                errorData
+            );
+            errorItem.tooltip = `Error: ${error.message}. Click to retry.`;
+            errorItem.command = {
+                command: 'tech-debt-extension.refreshTechDebtIssues',
+                title: 'Refresh Tech Debt Issues'
+            };
+            errorItem.iconPath = new vscode.ThemeIcon('warning');
+            
+            return [errorItem];
         }
     }
 }

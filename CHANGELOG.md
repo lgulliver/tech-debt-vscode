@@ -12,6 +12,13 @@ All notable changes to the "tech-debt-extension" extension will be documented in
 - Improved test coverage for GitHub API operations
 - Added contributing guidelines (CONTRIBUTING.md) for community involvement
 
+### Fixed in 0.3.0
+
+- Fixed HttpError appearing when VS Code initially loads the extension
+- Implemented delayed GitHub API initialization to improve startup experience
+- Added user-friendly error messages in the tree view instead of error dialogs
+- Fixed issue with duplicate method declarations
+
 ## [0.2.1] - 2025-05-20
 
 ### Fixed in 0.2.1

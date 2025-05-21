@@ -23,27 +23,6 @@ export async function activate(context: vscode.ExtensionContext) {
 	// Initialize GitHub API
 	const githubApi = GitHubAPI.getInstance();
 	
-	try {
-		// Initialize the GitHub API (authentication)
-		if (!await githubApi.initialize()) {
-			throw new Error('Failed to initialize GitHub API authentication');
-		}
-		
-		// Try to detect repository if not configured
-		if (!githubApi.isConfigured()) {
-			if (!await githubApi.initFromWorkspace()) {
-				throw new Error('Failed to configure repository settings');
-			}
-		}
-	} catch (error: any) {
-		const message = 'Failed to initialize GitHub integration: ' + error.message;
-		vscode.window.showErrorMessage(message);
-		console.error(message);
-	}
-	
-	// Use the console to output diagnostic information (console.log) and errors (console.error)
-	console.log('Congratulations, your extension "tech-debt-extension" is now active!');
-
 	// Initialize the TreeView provider
 	const techDebtIssuesProvider = new TechDebtIssuesProvider(githubApi);
 	const treeView = vscode.window.createTreeView('techDebtIssues', {
@@ -58,6 +37,25 @@ export async function activate(context: vscode.ExtensionContext) {
 	statusBarItem.command = 'tech-debt-extension.createTechDebtIssue';
 	statusBarItem.show();
 	context.subscriptions.push(statusBarItem);
+
+	// Delay GitHub API initialization to avoid HTTP errors during startup
+	const delayedInitialization = setTimeout(async () => {
+		try {
+			// Initialize the GitHub API (authentication)
+			if (!await githubApi.initialize()) {
+				console.log('GitHub API initialization deferred until needed');
+			}
+		} catch (error: any) {
+			// Only log to console, don't show error message during startup
+			console.log('Deferred GitHub API initialization: ' + error.message);
+		}
+	}, 5000); // 5 second delay
+	
+	// Register to clean up the timeout if VS Code is closed before it fires
+	context.subscriptions.push({ dispose: () => clearTimeout(delayedInitialization) });
+	
+	// Use the console to output diagnostic information (console.log) and errors (console.error)
+	console.log('Congratulations, your extension "tech-debt-extension" is now active!');
 	
 	// Register the command to create a new tech debt issue
 	const createIssueCommand = vscode.commands.registerCommand('tech-debt-extension.createTechDebtIssue', async () => {

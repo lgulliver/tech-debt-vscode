@@ -14,6 +14,9 @@
    - Added fallback mechanisms for missing Git extension
    - Improved error messages with actionable suggestions
    - Better handling of network and authentication issues
+   - Fixed HttpError appearing during VS Code startup
+   - Implemented delayed GitHub API initialization
+   - Added user-friendly error messages instead of error dialogs
 
 3. **Testing & Quality**
    - Expanded test coverage for GitHub API operations
@@ -28,6 +31,15 @@
 - Added contributing guidelines (CONTRIBUTING.md) for community involvement
 
 ### Completed Tasks for 0.3.0
+
+- [x] Bumped version number from 0.2.1 to 0.3.0
+- [x] Added more robust repository URL parsing
+- [x] Fixed HttpError appearing during VS Code startup
+- [x] Improved error handling in the tree view
+- [x] Added contributing guidelines
+- [x] Enhanced documentation and release notes
+- [x] Fixed duplicate method declaration
+- [x] Added graceful handling of initialization errors
 
 - [x] Add support for more repository URL formats
 - [x] Enhance error handling and improve stability

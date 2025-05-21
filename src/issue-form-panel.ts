@@ -137,7 +137,7 @@ export class IssueFormPanel {
             }
 
             // Ensure GitHub API is configured
-            if (!this._githubApi.isConfigured()) {
+            if (!this._githubApi.hasValidRepositoryConfig()) {
                 // Try to auto-detect repository
                 const detected = await this._githubApi.initFromWorkspace();
                 if (!detected) {

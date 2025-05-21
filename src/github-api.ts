@@ -13,6 +13,9 @@ export class GitHubAPI {
     private _owner: string | undefined;
     private _repo: string | undefined;
     private _cachedRepoDetails: { owner: string; repo: string } | undefined;
+    private _initializationStatus: 'not-started' | 'in-progress' | 'initialized' | 'failed' = 'not-started';
+    private _initializationError: Error | undefined;
+    private _initializationPromise: Promise<boolean> | undefined;
 
     private constructor() {}
 
@@ -24,14 +27,63 @@ export class GitHubAPI {
     }
 
     /**
+     * Check if the API is configured
+     */
+    public isConfigured(): boolean {
+        return !!this._owner && !!this._repo && !!this.octokit;
+    }
+
+    /**
+     * Get initialization status
+     */
+    public getInitializationStatus(): { status: string; error?: string } {
+        return {
+            status: this._initializationStatus,
+            error: this._initializationError ? this._initializationError.message : undefined
+        };
+    }
+
+    /**
      * Initialize the GitHub API client
      */
     public async initialize(): Promise<boolean> {
+        // If initialization is already in progress, return the existing promise
+        if (this._initializationPromise) {
+            return this._initializationPromise;
+        }
+
+        // If already initialized successfully, return true immediately
+        if (this._initializationStatus === 'initialized') {
+            return true;
+        }
+
+        // Mark as in progress and create the promise
+        this._initializationStatus = 'in-progress';
+        this._initializationPromise = this._initialize();
+
+        try {
+            const result = await this._initializationPromise;
+            // Clear the promise reference after completion
+            this._initializationPromise = undefined;
+            return result;
+        } catch (error) {
+            // Clear the promise reference on error
+            this._initializationPromise = undefined;
+            throw error;
+        }
+    }
+
+    /**
+     * Internal initialization implementation
+     */
+    private async _initialize(): Promise<boolean> {
         try {
             // Use VS Code's built-in GitHub authentication provider
             const session = await vscode.authentication.getSession('github', ['repo'], { createIfNone: true });
             if (!session) {
-                throw new Error('GitHub authentication is required');
+                this._initializationStatus = 'failed';
+                this._initializationError = new Error('GitHub authentication is required');
+                throw this._initializationError;
             }
 
             // Initialize Octokit with the session token
@@ -44,16 +96,21 @@ export class GitHubAPI {
             // Get repository information
             const repoInfo = await this.detectRepositoryDetails();
             if (!repoInfo) {
-                throw new Error('Could not detect GitHub repository. Please open a folder containing a GitHub repository.');
+                this._initializationStatus = 'failed';
+                this._initializationError = new Error('Could not detect GitHub repository. Please open a folder containing a GitHub repository.');
+                throw this._initializationError;
             }
 
             this._owner = repoInfo.owner;
             this._repo = repoInfo.repo;
             this._cachedRepoDetails = repoInfo;
 
+            this._initializationStatus = 'initialized';
             return true;
-        } catch (error) {
+        } catch (error: any) {
             console.error('Failed to initialize GitHub API:', error);
+            this._initializationStatus = 'failed';
+            this._initializationError = error;
             throw error;
         }
     }
@@ -528,9 +585,9 @@ export class GitHubAPI {
     }
     
     /**
-     * Check if the API is properly configured
+     * Check if the API has valid repository configuration
      */
-    public isConfigured(): boolean {
+    public hasValidRepositoryConfig(): boolean {
         return Boolean(this._token && this._owner && this._repo);
     }
 }
