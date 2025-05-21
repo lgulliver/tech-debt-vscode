@@ -51,15 +51,6 @@ This extension supports various GitHub repository URL formats:
 - Custom SSH configurations: `git@github.com-customconfig:owner/repo.git`
 - Enterprise GitHub URLs: `https://github.enterprise.com/owner/repo.git`
 
-## Release Notes
-
-### 0.0.1
-
-Initial release of the Tech Debt Extension with basic functionality:
-- Create tech debt issues in GitHub
-- View open tech debt issues in a tree view
-- Authentication via VS Code's GitHub authentication provider
-
 ---
 
 ## Usage

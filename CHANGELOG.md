@@ -2,6 +2,15 @@
 
 All notable changes to the "tech-debt-extension" extension will be documented in this file.
 
+## [0.3.0] - 2025-05-21
+
+### Added in 0.3.0
+
+- Added support for more repository URL formats
+- Enhanced error handling and improved overall stability
+- Expanded documentation with detailed usage instructions
+- Improved test coverage for GitHub API operations
+
 ## [0.2.1] - 2025-05-20
 
 ### Fixed in 0.2.1

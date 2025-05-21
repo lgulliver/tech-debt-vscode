@@ -1,5 +1,39 @@
 # Tech Debt Extension Release Notes
 
+## Version 0.3.0 Enhancements
+
+### Core Functionality Improvements
+
+1. **Repository URL Support**
+   - Added support for all common GitHub repository URL formats
+   - Added proper handling for custom SSH configurations
+   - Improved enterprise GitHub URL detection and parsing
+
+2. **Stability & Error Handling**
+   - Enhanced error handling for GitHub API interactions
+   - Added fallback mechanisms for missing Git extension
+   - Improved error messages with actionable suggestions
+   - Better handling of network and authentication issues
+
+3. **Testing & Quality**
+   - Expanded test coverage for GitHub API operations
+   - Added more comprehensive error case tests
+   - Improved test structure and organization
+
+### Documentation Updates
+
+- Added detailed examples for all supported repository formats
+- Expanded usage instructions in the README
+- Updated troubleshooting section with common issues
+
+### Completed Tasks for 0.3.0
+
+- [x] Add support for more repository URL formats
+- [x] Enhance error handling and improve stability
+- [x] Expand documentation with detailed instructions
+- [x] Improve test coverage
+- [x] Update version and release notes
+
 ## Version 0.1.0 Enhancements
 
 ### Core Functionality Additions
@@ -21,14 +55,16 @@
    - Ensured code works with proper error handling
 
 ### Marketplace Preparation
-   - Updated package.json with publisher and repository information
-   - Added keywords for better discoverability in the marketplace
-   - Added build-vsix script for easy packaging
-   - Updated version number to 0.1.0
+
+- Updated package.json with publisher and repository information
+- Added keywords for better discoverability in the marketplace
+- Added build-vsix script for easy packaging
+- Updated version number to 0.1.0
 
 ### Documentation
-   - Updated README with new features and examples
-   - Added detailed usage instructions for all new features
+
+- Updated README with new features and examples
+- Added detailed usage instructions for all new features
 
 ## Next Steps
 
@@ -46,6 +82,7 @@
    - Create promotional assets (screenshots, logo, etc.)
 
 ## Completed Tasks Checklist
+
 - [x] Implement issue editing functionality
 - [x] Add close/reopen functionality
 - [x] Update UI for better visual indicators
@@ -54,7 +91,8 @@
 - [x] Update documentation
 
 ## Pending Tasks
+
 - [ ] Complete end-to-end testing
 - [ ] Create promotional assets
-- [ ] Implement issue assignment 
+- [ ] Implement issue assignment
 - [ ] Add support for custom labels
