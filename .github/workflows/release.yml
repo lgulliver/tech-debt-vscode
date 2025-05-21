@@ -90,22 +90,71 @@ jobs:
       - name: Extract Changelog Section
         id: extract_changelog
         run: |
-          # Create a temporary file for the extracted changelog section
-          CHANGELOG_SECTION=$(awk -v version="## \\[${{ env.TAG_VERSION }}\\]" '
-          BEGIN { found=0; }
-          $0 ~ version { found=1; next; }
-          found && $0 ~ /^## / { found=0; }
-          found { print $0; }
-          ' CHANGELOG.md)
+          # Print CHANGELOG.md contents for debugging
+          echo "CHANGELOG.md contents (first 10 lines):"
+          head -n 10 CHANGELOG.md
           
-          if [ -z "$CHANGELOG_SECTION" ]; then
-            echo "No specific changelog section found for version ${{ env.TAG_VERSION }}"
-            CHANGELOG_SECTION="See full changelog for details."
+          # Print the version we're looking for
+          echo "Looking for version: ${{ env.TAG_VERSION }}"
+          
+          # Format the version pattern for grep
+          VERSION_PATTERN="## \\[${{ env.TAG_VERSION }}\\]"
+          echo "Searching for pattern: $VERSION_PATTERN"
+          
+          # Create a robust script to extract the changelog section
+          cat > extract_changelog.sh << 'EOF'
+          #!/bin/bash
+          set -e
+          
+          CHANGELOG_FILE="CHANGELOG.md"
+          VERSION="$1"
+          
+          # Escape brackets for grep
+          VERSION_PATTERN="## \\[$VERSION\\]"
+          
+          # Find the line number of our version
+          VERSION_LINE=$(grep -n "$VERSION_PATTERN" "$CHANGELOG_FILE" | cut -d ':' -f 1 || echo "")
+          
+          if [ -z "$VERSION_LINE" ]; then
+            echo "Error: Version $VERSION not found in changelog" >&2
+            echo "See full changelog for details." > changelog_section.md
+            exit 0
           fi
           
-          # Save the changelog section to a temporary file
-          echo "$CHANGELOG_SECTION" > changelog_section.md
-          echo "CHANGELOG_EXTRACTED=true" >> $GITHUB_ENV
+          echo "Found version header at line: $VERSION_LINE" >&2
+          
+          # Find the line number of the next version header
+          NEXT_LINE=$(tail -n "+$((VERSION_LINE + 1))" "$CHANGELOG_FILE" | grep -n "^## " | head -n 1 | cut -d ':' -f 1 || echo "")
+          
+          if [ -z "$NEXT_LINE" ]; then
+            # No next version found, extract until the end of file
+            tail -n "+$((VERSION_LINE))" "$CHANGELOG_FILE" > changelog_section.md
+          else
+            # Calculate the number of lines to extract (including the version header)
+            LINES_TO_EXTRACT=$((NEXT_LINE))
+            
+            # Extract section including our version header and excluding the next version header
+            tail -n "+$((VERSION_LINE))" "$CHANGELOG_FILE" | head -n "$LINES_TO_EXTRACT" > changelog_section.md
+          fi
+          
+          echo "Extracted changelog section:" >&2
+          cat changelog_section.md >&2
+          EOF
+          
+          # Make the script executable
+          chmod +x extract_changelog.sh
+          
+          # Run the script
+          ./extract_changelog.sh "${{ env.TAG_VERSION }}"
+          
+          # Check if extraction was successful
+          if [ -f "changelog_section.md" ]; then
+            echo "CHANGELOG_EXTRACTED=true" >> $GITHUB_ENV
+          else
+            echo "Warning: Failed to extract changelog section" >&2
+            echo "See full changelog for details." > changelog_section.md
+            echo "CHANGELOG_EXTRACTED=true" >> $GITHUB_ENV
+          fi
 
       - name: Create GitHub Release and Upload VSIX
         env:
@@ -119,7 +168,9 @@ jobs:
           if [ -f "changelog_section.md" ]; then
             echo "## What's Changed" >> release_notes.md
             echo "" >> release_notes.md
-            cat changelog_section.md >> release_notes.md
+            
+            # Exclude the version header line from changelog_section.md
+            grep -v "^## " changelog_section.md >> release_notes.md
             echo "" >> release_notes.md
           fi
           
@@ -131,6 +182,9 @@ jobs:
           echo '4. Choose the downloaded VSIX file' >> release_notes.md
           
           # Debug information
+          echo "Debug: Final release notes content:"
+          cat release_notes.md
+          
           echo "Debug: Checking repository info"
           gh repo view
 
