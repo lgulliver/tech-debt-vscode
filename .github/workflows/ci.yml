@@ -10,30 +10,33 @@ on:
 
 jobs:
   run-ci:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
 
     steps:
-      - name: Checkout repository
+      - name: Checkout repository (os: ${{ matrix.os }})
         uses: actions/checkout@v4
         with:
           fetch-depth: 0  # Needed for version history
 
-      - name: Setup Node.js
+      - name: Setup Node.js (os: ${{ matrix.os }})
         uses: actions/setup-node@v4
         with:
           node-version: '18.x'
           cache: 'yarn'
 
-      - name: Install dependencies
+      - name: Install dependencies (os: ${{ matrix.os }})
         run: yarn install 
 
-      - name: Build extension
+      - name: Build extension (os: ${{ matrix.os }})
         run: yarn run compile
 
-      - name: Run linting
+      - name: Run linting (os: ${{ matrix.os }})
         run: yarn run lint
         
-      - name: Verify CHANGELOG format
+      - name: Verify CHANGELOG format (os: ${{ matrix.os }})
         run: |
           # Check if CHANGELOG.md exists and has correct format
           if [ ! -f CHANGELOG.md ]; then
@@ -54,4 +57,3 @@ jobs:
           fi
           
           echo "CHANGELOG.md format verification passed!"
-      
