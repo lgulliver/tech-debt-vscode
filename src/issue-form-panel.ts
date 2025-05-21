@@ -215,7 +215,8 @@ export class IssueFormPanel {
                             
                             if (response === retry) {
                                 // Keep the form open and let them try again
-                                return;
+                                // But still throw an error to ensure progress notification closes
+                                throw new Error('Retry requested');
                             }
                         } else if (apiError.message?.includes('authentication') || apiError.status === 401) {
                             const signIn = 'Sign In Again';
@@ -237,8 +238,8 @@ export class IssueFormPanel {
                                 } catch (error) {
                                     console.error('Error managing authentication session:', error);
                                 }
-                                // The form will be kept open, they can try again after signing in
-                                return;
+                                // The form will be kept open, but throw to close the notification
+                                throw new Error('Authentication retry requested');
                             }
                         } else {
                             // Generic error handling
