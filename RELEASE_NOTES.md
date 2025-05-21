@@ -1,5 +1,50 @@
 # Tech Debt Extension Release Notes
 
+## Version 0.3.2 - Workflow Improvements (2025-05-21)
+
+### Release Automation Enhancements
+
+1. **Streamlined Release Process**
+   - Improved release workflow with automated tag management
+   - Added helper script for release creation (`scripts/create-release.sh`)
+   - Added detailed release process documentation in `docs/RELEASE_PROCESS.md`
+   - Enhanced error handling in the GitHub Actions workflows
+
+2. **GitHub Integration Improvements**
+   - Updated GitHub Actions workflows for better release management
+   - Improved changelog extraction for GitHub releases
+   - Automated VSIX packaging and attachment to releases
+   - Added support for manual workflow triggers with tag specification
+
+3. **Documentation Updates**
+   - Added comprehensive release process documentation
+   - Updated README with release workflow information
+   - Improved CHANGELOG.md formatting for better parsing
+
+### Completed Tasks for 0.3.2
+
+- [x] Added permissions for GitHub releases in workflows
+- [x] Implemented manual workflow triggering with tag input
+- [x] Improved changelog extraction for release notes
+- [x] Enhanced tag handling logic with existence verification
+- [x] Created helper script for version management and releases
+- [x] Added comprehensive release process documentation
+
+## Version 0.3.1 - Bug Fixes & Stability (2025-05-21)
+
+### Improvements
+
+- Added additional Git repository URL format support
+- Enhanced error handling for repository detection edge cases
+- Added more comprehensive documentation with examples
+
+### Bug Fixes
+
+- Fixed HttpError appearing during VS Code startup with improved initialization
+- Implemented graceful error handling in the tree view
+- Added informative user messages instead of error dialogs
+- Fixed duplicate method declaration in GitHub API class
+
 ## Version 0.3.0 Enhancements
 
 ### Core Functionality Improvements

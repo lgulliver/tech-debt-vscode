@@ -2,6 +2,12 @@
 
 All notable changes to the "tech-debt-extension" extension will be documented in this file.
 
+## [0.3.2] - 2025-05-21
+
+### Added
+
+- Icon!
+
 ## [0.3.1] - 2025-05-21
 
 ### Added
