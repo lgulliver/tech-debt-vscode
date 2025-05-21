@@ -27,4 +27,26 @@ jobs:
 
       - name: Run linting
         run: yarn run lint
+        
+      - name: Verify CHANGELOG format
+        run: |
+          # Check if CHANGELOG.md exists and has correct format
+          if [ ! -f CHANGELOG.md ]; then
+            echo "::error::CHANGELOG.md file not found"
+            exit 1
+          fi
+          
+          # Check for Change Log header
+          if ! grep -q "^# Change Log" CHANGELOG.md; then
+            echo "::error::CHANGELOG.md is missing the '# Change Log' header"
+            exit 1
+          fi
+          
+          # Check for at least one version entry with correct format
+          if ! grep -q "^## \[[0-9]\+\.[0-9]\+\.[0-9]\+\] - [0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\}" CHANGELOG.md; then
+            echo "::error::CHANGELOG.md doesn't contain any properly formatted version entries. Expected format: '## [x.y.z] - YYYY-MM-DD'"
+            exit 1
+          fi
+          
+          echo "CHANGELOG.md format verification passed!"
       

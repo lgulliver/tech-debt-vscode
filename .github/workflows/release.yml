@@ -74,12 +74,35 @@ jobs:
           
           echo "VSIX_FILE=tech-debt-extension-$TAG_VERSION.vsix" >> $GITHUB_ENV
 
+      # Create and ensure tag exists (moved before release creation)
+      - name: Ensure tag exists
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          
+          # Check if the tag already exists locally
+          if git rev-parse "${{ env.RAW_TAG }}" >/dev/null 2>&1; then
+            echo "Tag ${{ env.RAW_TAG }} already exists locally"
+          else
+            echo "Creating tag ${{ env.RAW_TAG }} locally"
+            git tag -a "${{ env.RAW_TAG }}" -m "Release ${{ env.RAW_TAG }}"
+          fi
+          
+          # Check if the tag exists on remote
+          if git ls-remote --tags origin | grep -q "refs/tags/${{ env.RAW_TAG }}$"; then
+            echo "Tag ${{ env.RAW_TAG }} already exists on remote"
+          else
+            echo "Pushing tag ${{ env.RAW_TAG }} to remote"
+            git push origin "${{ env.RAW_TAG }}"
+          fi
+
       - name: Build extension
         run: yarn run compile
 
       - name: Run linting
         run: yarn run lint
-
+        
       - name: Package VSIX
         run: yarn run build-vsix
 
@@ -90,71 +113,38 @@ jobs:
       - name: Extract Changelog Section
         id: extract_changelog
         run: |
-          # Print CHANGELOG.md contents for debugging
-          echo "CHANGELOG.md contents (first 10 lines):"
-          head -n 10 CHANGELOG.md
+          echo "Extracting changelog for version ${{ env.TAG_VERSION }}"
           
-          # Print the version we're looking for
-          echo "Looking for version: ${{ env.TAG_VERSION }}"
-          
-          # Format the version pattern for grep
+          # Simple extraction script that's more reliable
           VERSION_PATTERN="## \\[${{ env.TAG_VERSION }}\\]"
-          echo "Searching for pattern: $VERSION_PATTERN"
           
-          # Create a robust script to extract the changelog section
-          cat > extract_changelog.sh << 'EOF'
-          #!/bin/bash
-          set -e
+          # Get the line number where this version starts
+          START_LINE=$(grep -n "$VERSION_PATTERN" CHANGELOG.md | cut -d ':' -f 1)
           
-          CHANGELOG_FILE="CHANGELOG.md"
-          VERSION="$1"
-          
-          # Escape brackets for grep
-          VERSION_PATTERN="## \\[$VERSION\\]"
-          
-          # Find the line number of our version
-          VERSION_LINE=$(grep -n "$VERSION_PATTERN" "$CHANGELOG_FILE" | cut -d ':' -f 1 || echo "")
-          
-          if [ -z "$VERSION_LINE" ]; then
-            echo "Error: Version $VERSION not found in changelog" >&2
-            echo "See full changelog for details." > changelog_section.md
+          if [ -z "$START_LINE" ]; then
+            echo "::warning::Version ${{ env.TAG_VERSION }} not found in CHANGELOG.md"
+            echo "See full release notes for details." > changelog_section.md
+            echo "CHANGELOG_EXTRACTED=false" >> $GITHUB_ENV
             exit 0
           fi
           
-          echo "Found version header at line: $VERSION_LINE" >&2
+          # Find the line number of the next version section or end of file
+          NEXT_VERSION_LINE=$(tail -n "+$((START_LINE + 1))" CHANGELOG.md | grep -n "^## \[" | head -n 1 | cut -d ':' -f 1)
           
-          # Find the line number of the next version header
-          NEXT_LINE=$(tail -n "+$((VERSION_LINE + 1))" "$CHANGELOG_FILE" | grep -n "^## " | head -n 1 | cut -d ':' -f 1 || echo "")
-          
-          if [ -z "$NEXT_LINE" ]; then
-            # No next version found, extract until the end of file
-            tail -n "+$((VERSION_LINE))" "$CHANGELOG_FILE" > changelog_section.md
+          if [ -z "$NEXT_VERSION_LINE" ]; then
+            # Extract from this version to the end of file
+            tail -n "+$START_LINE" CHANGELOG.md > changelog_section.md
           else
-            # Calculate the number of lines to extract (including the version header)
-            LINES_TO_EXTRACT=$((NEXT_LINE))
-            
-            # Extract section including our version header and excluding the next version header
-            tail -n "+$((VERSION_LINE))" "$CHANGELOG_FILE" | head -n "$LINES_TO_EXTRACT" > changelog_section.md
+            # Calculate the last line to extract
+            LAST_LINE=$((START_LINE + NEXT_VERSION_LINE - 1))
+            # Extract the section
+            sed -n "${START_LINE},${LAST_LINE}p" CHANGELOG.md > changelog_section.md
           fi
           
-          echo "Extracted changelog section:" >&2
-          cat changelog_section.md >&2
-          EOF
+          echo "Extracted changelog section:"
+          cat changelog_section.md
           
-          # Make the script executable
-          chmod +x extract_changelog.sh
-          
-          # Run the script
-          ./extract_changelog.sh "${{ env.TAG_VERSION }}"
-          
-          # Check if extraction was successful
-          if [ -f "changelog_section.md" ]; then
-            echo "CHANGELOG_EXTRACTED=true" >> $GITHUB_ENV
-          else
-            echo "Warning: Failed to extract changelog section" >&2
-            echo "See full changelog for details." > changelog_section.md
-            echo "CHANGELOG_EXTRACTED=true" >> $GITHUB_ENV
-          fi
+          echo "CHANGELOG_EXTRACTED=true" >> $GITHUB_ENV
 
       - name: Create GitHub Release and Upload VSIX
         env:
@@ -189,6 +179,13 @@ jobs:
           gh repo view
 
           # Create the release (draft or not depending on input)
+          # Check if VSIX file exists
+          if [ ! -f "${{ env.VSIX_FILE }}" ]; then
+            echo "::error::VSIX file not found: ${{ env.VSIX_FILE }}"
+            exit 1
+          fi
+          
+          # Determine draft status based on workflow trigger
           if [ "${{ github.event_name }}" == "workflow_dispatch" ] && [ "${{ github.event.inputs.draft }}" == "false" ]; then
             echo "Creating a public release..."
             gh release create "${{ env.RAW_TAG }}" \
@@ -212,13 +209,6 @@ jobs:
           git config --local user.name "GitHub Action"
           git add package.json
           git commit -m "ci: bump version to ${{ env.TAG_VERSION }}"
-          
-          # Create and push the tag if it doesn't exist (for workflow_dispatch)
-          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-            echo "Creating and pushing tag ${{ env.RAW_TAG }}"
-            git tag ${{ env.RAW_TAG }}
-            git push origin ${{ env.RAW_TAG }}
-          fi
           
           # Push changes to package.json
           git push
