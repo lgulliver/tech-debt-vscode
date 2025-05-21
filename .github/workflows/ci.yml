@@ -1,10 +1,10 @@
-# filepath: .github/workflows/release.yml
+# filepath: .github/workflows/ci.yml
 
 on:
   push:
 
 jobs:
-  release:
+  run-ci:
     runs-on: ubuntu-latest
 
     steps:
@@ -16,7 +16,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '16.x'
+          node-version: '18.x'
           cache: 'yarn'
 
       - name: Install dependencies
@@ -24,6 +24,9 @@ jobs:
 
       - name: Build extension
         run: yarn run compile
+
+      - name: Run linting
+        run: yarn run lint
 
       - name: Run tests
         run: yarn test
