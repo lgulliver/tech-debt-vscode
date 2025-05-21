@@ -2,7 +2,7 @@
   "name": "tech-debt-extension",
   "displayName": "Tech Debt Manager",
   "description": "Create, view, and manage technical debt issues in GitHub from inside VS Code",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "license": "MIT",
   "icon": "images/icon.png",
   "publisher": "liamgulliver",
@@ -89,6 +89,11 @@
         "command": "tech-debt-extension.reopenIssue",
         "title": "Reopen Issue",
         "icon": "$(issue-reopened)"
+      },
+      {
+        "command": "tech-debt-extension.clearFilters",
+        "title": "Clear Filters",
+        "icon": "$(clear-all)"
       }
     ],
     "views": {
@@ -126,6 +131,11 @@
           "command": "tech-debt-extension.showClosedIssues",
           "when": "view == techDebtIssues",
           "group": "filter@2"
+        },
+        {
+          "command": "tech-debt-extension.clearFilters",
+          "when": "view == techDebtIssues",
+          "group": "filter@3"
         }
       ],
       "view/item/context": [
@@ -166,6 +176,10 @@
         },
         {
           "command": "tech-debt-extension.refreshTechDebtIssues",
+          "when": "view == techDebtIssues && workspaceHasGit"
+        },
+        {
+          "command": "tech-debt-extension.clearFilters",
           "when": "view == techDebtIssues && workspaceHasGit"
         },
         {

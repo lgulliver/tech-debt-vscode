@@ -2,6 +2,13 @@
 
 All notable changes to the "tech-debt-extension" extension will be documented in this file.
 
+## [0.3.3] - 2025-05-21
+
+### Added
+
+- Implemented issue filtering by state (open/closed), creator, and assignee
+- Added "Clear Filters" command to easily reset all applied filters
+
 ## [0.3.2] - 2025-05-21
 
 ### Added

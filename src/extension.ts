@@ -154,7 +154,8 @@ export async function activate(context: vscode.ExtensionContext) {
 				{ label: 'Show open issues', description: 'Show only open issues', state: 'open' },
 				{ label: 'Show closed issues', description: 'Show only closed issues', state: 'closed' },
 				{ label: 'Filter by creator', description: 'Show issues created by a specific user', creator: true },
-				{ label: 'Filter by assignee', description: 'Show issues assigned to a specific user', assignee: true }
+				{ label: 'Filter by assignee', description: 'Show issues assigned to a specific user', assignee: true },
+				{ label: 'Clear all filters', description: 'Reset to default filters', clear: true }
 			];
 			
 			// Show quick pick
@@ -168,7 +169,11 @@ export async function activate(context: vscode.ExtensionContext) {
 			}
 			
 			// Handle filter selection
-			if (selectedFilter.state) {
+			if (selectedFilter.clear) {
+				// Clear all filters
+				techDebtIssuesProvider.clearFilter();
+				vscode.window.showInformationMessage('Filters cleared');
+			} else if (selectedFilter.state) {
 				// Filter by state
 				techDebtIssuesProvider.setFilter({ state: selectedFilter.state });
 			} else if (selectedFilter.creator) {
@@ -208,6 +213,12 @@ export async function activate(context: vscode.ExtensionContext) {
 	// Register command to show closed issues
 	const showClosedCommand = vscode.commands.registerCommand('tech-debt-extension.showClosedIssues', () => {
 		techDebtIssuesProvider.setFilter({ state: 'closed' });
+	});
+	
+	// Register command to clear filters
+	const clearFiltersCommand = vscode.commands.registerCommand('tech-debt-extension.clearFilters', () => {
+		techDebtIssuesProvider.clearFilter();
+		vscode.window.showInformationMessage('Issue filters cleared');
 	});
 
 	// Register command to edit an issue
@@ -335,6 +346,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		filterCommand,
 		showOpenCommand,
 		showClosedCommand,
+		clearFiltersCommand,
 		editIssueCommand,
 		closeIssueCommand,
 		reopenIssueCommand,

@@ -76,6 +76,11 @@ export class TechDebtIssuesProvider implements vscode.TreeDataProvider<TechDebtI
         this.refresh();
     }
 
+    clearFilter(): void {
+        this._filter = { state: 'open' };
+        this.refresh();
+    }
+
     getTreeItem(element: TechDebtIssueItem): vscode.TreeItem {
         return element;
     }

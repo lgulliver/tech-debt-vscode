@@ -17,7 +17,7 @@ A VS Code extension that allows you to create and manage GitHub issues tagged as
 - [ ] **Comment on Issues**: Add comments to tech debt issues without leaving VS Code using the rich comment interface.
 - [ ] **Custom Labels**: Support for custom labels beyond "tech-debt" in future versions.
 - [ ] **Enterprise Support**: Support for GitHub Enterprise URLs and custom SSH configurations.
-- [ ] **Filter Issues**: Filter tech debt issues by state (open/closed), creator, or assignee.
+- [x] **Filter Issues**: Filter tech debt issues by state (open/closed), creator, or assignee.
 
 ## Requirements
 
@@ -41,7 +41,6 @@ This extension contributes the following settings:
 - The extension currently only works with GitHub repositories.
 - Only supports the "tech-debt" label for now. Custom labels will be added in future versions.
 - Filters don't currently work in all circumstances. If you encounter issues, please report them.
-- Filters are not currently cleared.
 
 ## Supported Repository URL Formats
 
