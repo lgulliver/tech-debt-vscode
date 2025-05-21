@@ -5,6 +5,9 @@ on:
     tags:
       - 'v*.*.*'
 
+permissions:
+  contents: write  # This allows the action to create releases
+
 jobs:
   release:
     runs-on: ubuntu-latest
@@ -85,7 +88,7 @@ jobs:
 
       - name: Create GitHub Release and Upload VSIX
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           # Create release notes file
           echo "# Tech Debt Manager v${{ env.TAG_VERSION }}" > release_notes.md
@@ -106,6 +109,10 @@ jobs:
           echo '3. Select "Install from VSIX..."' >> release_notes.md
           echo '4. Choose the downloaded VSIX file' >> release_notes.md
           
+          # Debug information
+          echo "Debug: Checking repository info"
+          gh repo view
+
           # Create the release as a draft
           gh release create "v${{ env.TAG_VERSION }}" \
             --title "Tech Debt Manager v${{ env.TAG_VERSION }}" \
