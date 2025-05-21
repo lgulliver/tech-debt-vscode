@@ -6,10 +6,15 @@ on:
       - 'v*.*.*'
   workflow_dispatch:
     inputs:
-      version:
-        description: 'Version to release'
+      tag_name:
+        description: 'Tag for this release (e.g., v1.2.3)'
         required: true
-        default: 'v1.0.0'
+        type: string
+      draft:
+        description: 'Create as draft release'
+        required: false
+        default: true
+        type: boolean
 
 permissions:
   contents: write  # This allows the action to create releases
@@ -37,8 +42,18 @@ jobs:
         id: update_version
         run: |
           # Extract version from tag (e.g., v1.2.3 -> 1.2.3)
-          TAG_VERSION=${GITHUB_REF#refs/tags/v}
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            # Use the manually provided tag from workflow_dispatch
+            RAW_TAG="${{ github.event.inputs.tag_name }}"
+          else
+            # Use the tag that triggered the workflow
+            RAW_TAG=${GITHUB_REF#refs/tags/}
+          fi
+          
+          # Remove 'v' prefix if present
+          TAG_VERSION=${RAW_TAG#v}
           echo "TAG_VERSION=$TAG_VERSION" >> $GITHUB_ENV
+          echo "RAW_TAG=$RAW_TAG" >> $GITHUB_ENV
           
           # Get current version
           CURRENT_VERSION=$(node -p "require('./package.json').version")
@@ -119,20 +134,37 @@ jobs:
           echo "Debug: Checking repository info"
           gh repo view
 
-          # Create the release as a draft
-          gh release create "v${{ env.TAG_VERSION }}" \
-            --title "Tech Debt Manager v${{ env.TAG_VERSION }}" \
-            --notes-file release_notes.md \
-            --draft
+          # Create the release (draft or not depending on input)
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ] && [ "${{ github.event.inputs.draft }}" == "false" ]; then
+            echo "Creating a public release..."
+            gh release create "${{ env.RAW_TAG }}" \
+              --title "Tech Debt Manager v${{ env.TAG_VERSION }}" \
+              --notes-file release_notes.md
+          else
+            echo "Creating a draft release..."
+            gh release create "${{ env.RAW_TAG }}" \
+              --title "Tech Debt Manager v${{ env.TAG_VERSION }}" \
+              --notes-file release_notes.md \
+              --draft
+          fi
             
           # Upload the asset
-          gh release upload "v${{ env.TAG_VERSION }}" "${{ env.VSIX_FILE }}" --clobber
+          gh release upload "${{ env.RAW_TAG }}" "${{ env.VSIX_FILE }}" --clobber
       
       - name: Commit version change
-        if: env.CURRENT_VERSION != env.TAG_VERSION
+        if: env.CURRENT_VERSION != env.TAG_VERSION && github.event_name == 'workflow_dispatch'
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
           git add package.json
           git commit -m "ci: bump version to ${{ env.TAG_VERSION }}"
+          
+          # Create and push the tag if it doesn't exist (for workflow_dispatch)
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "Creating and pushing tag ${{ env.RAW_TAG }}"
+            git tag ${{ env.RAW_TAG }}
+            git push origin ${{ env.RAW_TAG }}
+          fi
+          
+          # Push changes to package.json
           git push
