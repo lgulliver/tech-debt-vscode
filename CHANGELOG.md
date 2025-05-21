@@ -2,6 +2,17 @@
 
 All notable changes to the "tech-debt-extension" extension will be documented in this file.
 
+## [0.3.4] - 2025-05-22
+
+### Security
+
+- Enhanced input sanitization to prevent injection attacks
+- Added centralized string handling utilities with robust sanitization
+- Improved URL parsing with stronger validation and sanitization
+- Enhanced HTML escaping for user-provided inputs
+- Added input validation for all GitHub API methods
+- Applied best practices for command input sanitization
+
 ## [0.3.3] - 2025-05-21
 
 ### Added

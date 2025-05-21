@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { GitHubAPI } from './github-api';
+import { StringUtils } from './utils/string-utils';
 
 /**
  * Manages tech debt issue creation form webview panel
@@ -126,7 +127,7 @@ export class IssueFormPanel {
      */
     private async createIssue(title: string, description: string): Promise<void> {
         try {
-            // Validate
+            // Validate title
             if (!title.trim()) {
                 this._panel.webview.postMessage({ 
                     command: 'validationError', 
@@ -135,6 +136,20 @@ export class IssueFormPanel {
                 });
                 return;
             }
+            
+            // Validate title length (max 256 chars as per most GitHub limits)
+            if (!StringUtils.validateLength(title, 1, 256)) {
+                this._panel.webview.postMessage({ 
+                    command: 'validationError', 
+                    fieldName: 'title',
+                    message: 'Title must be between 1 and 256 characters'
+                });
+                return;
+            }
+            
+            // Sanitize inputs to prevent injection
+            title = title.trim();
+            description = description || '';
 
             // Ensure GitHub API is configured
             if (!this._githubApi.hasValidRepositoryConfig()) {
@@ -596,13 +611,9 @@ export class IssueFormPanel {
 
     /**
      * Helper method to escape HTML special characters
+     * @deprecated Use StringUtils.escapeHtml instead
      */
     private _escapeHtml(text: string): string {
-        return text
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#039;');
+        return StringUtils.escapeHtml(text);
     }
 }

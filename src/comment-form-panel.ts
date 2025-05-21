@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { GitHubAPI } from './github-api';
+import { StringUtils } from './utils/string-utils';
 
 /**
  * Manages tech debt issue comment form webview panel
@@ -387,13 +388,9 @@ export class CommentFormPanel {
 
     /**
      * Helper method to escape HTML special characters
+     * @deprecated Use StringUtils.escapeHtml instead
      */
     private _escapeHtml(text: string): string {
-        return text
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#039;');
+        return StringUtils.escapeHtml(text);
     }
 }

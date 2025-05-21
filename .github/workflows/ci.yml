@@ -8,6 +8,9 @@ on:
       - 'yarn.lock'
       - '.github/workflows/ci.yml'
 
+permissions:
+  contents: read 
+
 jobs:
   run-ci:
     runs-on: ${{ matrix.os }}

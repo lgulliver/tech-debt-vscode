@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
 import { execSync } from 'child_process';
+import { StringUtils } from './utils/string-utils';
 
 // Import Octokit dynamically to avoid CommonJS/ESM module issues
 type OctokitType = any; // We'll assign this with the dynamic import
@@ -179,47 +180,69 @@ export class GitHubAPI {
      * - Enterprise GitHub: https://github.enterprise.com/owner/repo.git
      */
     private parseGitHubUrl(remoteUrl: string): { owner: string; repo: string } {
+        // Safety check for null/undefined/empty
+        if (!remoteUrl) {
+            throw new Error('Repository URL cannot be empty');
+        }
+
+        // Trim any whitespace
+        remoteUrl = StringUtils.truncate(remoteUrl.trim(), 2000);
+        
         console.log(`Parsing GitHub URL: ${remoteUrl}`);
         
         // Extract owner and repo from different URL formats
         let match;
+        let owner = '';
+        let repo = '';
         
         // Handle HTTPS format: https://github.com/owner/repo.git
         if (remoteUrl.includes('github') && remoteUrl.includes('http')) {
-            const httpsRegex = /(?:https?:\/\/)?(?:[^@\/\n]+@)?(?:www\.)?([^:\/\n]+)\/([^\/\n]+)\/([^\/\n]+)(?:\.git)?/i;
+            const httpsRegex = /(?:https?:\/\/)?(?:[^@\/\n]+@)?(?:www\.)?([^:\/\n]+)\/([^\/\n]+)\/([^\/\n]+?)(?:\.git)?$/i;
             match = remoteUrl.match(httpsRegex);
             
-            if (match) {
-                return {
-                    owner: match[2],
-                    repo: match[3]
-                };
+            if (match && match.length >= 4) {
+                owner = match[2];
+                repo = match[3];
             }
         }
         
-        // Handle standard SSH format: git@github.com:owner/repo.git
-        const sshRegex = /git@([^:]+):([^\/]+)\/([^\/\.]+)(?:\.git)?$/;
-        match = remoteUrl.match(sshRegex);
-        
-        if (match) {
-            return {
-                owner: match[2],
-                repo: match[3]
-            };
+        // If not matched yet, try standard SSH format: git@github.com:owner/repo.git
+        if (!owner && !repo) {
+            const sshRegex = /git@([^:]+):([^\/]+)\/([^\/\.]+?)(?:\.git)?$/;
+            match = remoteUrl.match(sshRegex);
+            
+            if (match && match.length >= 4) {
+                owner = match[2];
+                repo = match[3];
+            }
         }
         
-        // Handle custom SSH config: git@github.com-customconfig:owner/repo.git
-        const customSshRegex = /git@[^-]+-[^:]+:([^\/]+)\/([^\/\.]+)(?:\.git)?$/;
-        match = remoteUrl.match(customSshRegex);
-        
-        if (match) {
-            return {
-                owner: match[1],
-                repo: match[2]
-            };
+        // If still not matched, try custom SSH config: git@github.com-customconfig:owner/repo.git
+        if (!owner && !repo) {
+            const customSshRegex = /git@[^-]+-[^:]+:([^\/]+)\/([^\/\.]+?)(?:\.git)?$/;
+            match = remoteUrl.match(customSshRegex);
+            
+            if (match && match.length >= 3) {
+                owner = match[1];
+                repo = match[2];
+            }
         }
         
-        throw new Error(`Cannot parse GitHub owner and repo from URL: ${remoteUrl}`);
+        // Validate the result
+        if (!owner || !repo) {
+            throw new Error(`Cannot parse GitHub owner and repo from URL: ${StringUtils.escapeHtml(remoteUrl)}`);
+        }
+        
+        // Use our dedicated sanitization method for URL components
+        owner = StringUtils.sanitizeUrlComponent(owner);
+        repo = StringUtils.sanitizeUrlComponent(repo);
+        
+        // Additional validation after sanitization
+        if (!owner || !repo) {
+            throw new Error('Repository owner and name must not be empty after sanitization');
+        }
+        
+        return { owner, repo };
     }
 
     /**
@@ -262,17 +285,48 @@ export class GitHubAPI {
             throw new Error('Repository name is required');
         }
         
+        // Sanitize and validate inputs
+        const sanitizedOwner = StringUtils.sanitizeUrlComponent(ownerInput);
+        const sanitizedRepo = StringUtils.sanitizeUrlComponent(repoInput);
+        
+        // Additional validation
+        if (!sanitizedOwner || sanitizedOwner.length < 1) {
+            throw new Error('Repository owner is invalid or contains disallowed characters');
+        }
+        
+        if (!sanitizedRepo || sanitizedRepo.length < 1) {
+            throw new Error('Repository name is invalid or contains disallowed characters');
+        }
+        
         return {
-            owner: ownerInput.trim(),
-            repo: repoInput.trim()
+            owner: sanitizedOwner,
+            repo: sanitizedRepo
         };
     }
 
     /**
      * Create a new issue in the GitHub repository
+     * 
+     * @param title The title of the issue
+     * @param description The description/body of the issue
+     * @returns Object containing the URL and number of the created issue
+     * @throws Error if validation fails or GitHub API errors
      */
     public async createIssue(title: string, description: string): Promise<{ url: string; number: number }> {
         this.checkInitialized();
+        
+        // Input validation
+        if (!title || !title.trim()) {
+            throw new Error('Issue title is required');
+        }
+        
+        if (!StringUtils.validateLength(title, 1, 256)) {
+            throw new Error('Issue title must be between 1 and 256 characters');
+        }
+        
+        // Use StringUtils for safer input handling
+        const safeTitle = StringUtils.truncate(title.trim(), 256);
+        const safeDescription = description ? StringUtils.truncate(description, 65536) : '';
         
         try {
             const { owner, repo } = await this.getRepoDetails();
@@ -286,8 +340,8 @@ export class GitHubAPI {
                     const response = await this.octokit!.issues.create({
                         owner,
                         repo,
-                        title,
-                        body: description,
+                        title: safeTitle,
+                        body: safeDescription,
                         labels: ['tech-debt']
                     });
 
@@ -368,14 +422,26 @@ export class GitHubAPI {
     public async addCommentToIssue(issueNumber: number, comment: string): Promise<{ url: string }> {
         this.checkInitialized();
         
+        // Input validation
+        if (!comment || !comment.trim()) {
+            throw new Error('Comment text is required');
+        }
+        
+        if (isNaN(issueNumber) || issueNumber <= 0) {
+            throw new Error('Valid issue number is required');
+        }
+        
         try {
             const { owner, repo } = await this.getRepoDetails();
+            
+            // Truncate overly long comments
+            const safeComment = StringUtils.truncate(comment.trim(), 65536);
             
             const response = await this.octokit!.issues.createComment({
                 owner,
                 repo,
                 issue_number: issueNumber,
-                body: comment
+                body: safeComment
             });
 
             return {
@@ -393,10 +459,17 @@ export class GitHubAPI {
     public async searchSimilarIssues(title: string): Promise<any[]> {
         this.checkInitialized();
         
+        if (!title) {
+            return [];
+        }
+        
         try {
             const { owner, repo } = await this.getRepoDetails();
             
-            const searchQuery = `repo:${owner}/${repo} is:issue label:tech-debt in:title ${title}`;
+            // Sanitize the search query to prevent injection attacks
+            const sanitizedTitle = StringUtils.sanitizeSearchQuery(title);
+            
+            const searchQuery = `repo:${owner}/${repo} is:issue label:tech-debt in:title ${sanitizedTitle}`;
             
             const response = await this.octokit!.search.issuesAndPullRequests({
                 q: searchQuery,
@@ -412,9 +485,18 @@ export class GitHubAPI {
 
     /**
      * Get detailed information about a specific tech debt issue
+     * 
+     * @param issueNumber The number of the issue to get details for
+     * @returns The issue data
+     * @throws Error if validation fails or GitHub API errors
      */
     public async getIssueDetails(issueNumber: number): Promise<any> {
         this.checkInitialized();
+        
+        // Input validation
+        if (isNaN(issueNumber) || issueNumber <= 0) {
+            throw new Error('Valid issue number is required');
+        }
         
         try {
             const { owner, repo } = await this.getRepoDetails();
@@ -434,6 +516,10 @@ export class GitHubAPI {
 
     /**
      * Get all tech debt issues from the GitHub repository with filter options
+     * 
+     * @param filter Object containing filter options for issues (state, assignee, creator)
+     * @returns Array of issues matching the filter criteria
+     * @throws Error if GitHub API errors occur
      */
     public async getTechDebtIssuesWithFilter(filter: { state?: string; assignee?: string; creator?: string }): Promise<any[]> {
         this.checkInitialized();
@@ -446,17 +532,17 @@ export class GitHubAPI {
                 owner,
                 repo,
                 labels: 'tech-debt',
-                state: filter.state || 'open',
+                state: (filter.state && ['open', 'closed', 'all'].includes(filter.state)) ? filter.state : 'open',
                 per_page: 100
             };
             
-            // Add optional filters
+            // Add optional filters with sanitization
             if (filter.assignee) {
-                params.assignee = filter.assignee;
+                params.assignee = StringUtils.sanitizeUrlComponent(filter.assignee);
             }
             
             if (filter.creator) {
-                params.creator = filter.creator;
+                params.creator = StringUtils.sanitizeUrlComponent(filter.creator);
             }
             
             const response = await this.octokit!.issues.listForRepo(params);
@@ -470,9 +556,32 @@ export class GitHubAPI {
 
     /**
      * Edit an existing issue
+     * 
+     * @param issueNumber The number of the issue to edit
+     * @param title The new title for the issue
+     * @param body The new body/description for the issue
+     * @returns The updated issue data
+     * @throws Error if validation fails or GitHub API errors
      */
     public async editIssue(issueNumber: number, title: string, body: string): Promise<any> {
         this.checkInitialized();
+        
+        // Input validation
+        if (isNaN(issueNumber) || issueNumber <= 0) {
+            throw new Error('Valid issue number is required');
+        }
+        
+        if (!title || !title.trim()) {
+            throw new Error('Issue title is required');
+        }
+        
+        if (!StringUtils.validateLength(title, 1, 256)) {
+            throw new Error('Issue title must be between 1 and 256 characters');
+        }
+        
+        // Use StringUtils for safer input handling
+        const safeTitle = StringUtils.truncate(title.trim(), 256);
+        const safeBody = body ? StringUtils.truncate(body, 65536) : '';
         
         try {
             const { owner, repo } = await this.getRepoDetails();
@@ -481,8 +590,8 @@ export class GitHubAPI {
                 owner,
                 repo,
                 issue_number: issueNumber,
-                title,
-                body
+                title: safeTitle,
+                body: safeBody
             });
 
             return response.data;
@@ -494,9 +603,18 @@ export class GitHubAPI {
 
     /**
      * Close an issue
+     * 
+     * @param issueNumber The number of the issue to close
+     * @returns The updated issue data
+     * @throws Error if validation fails or GitHub API errors
      */
     public async closeIssue(issueNumber: number): Promise<any> {
         this.checkInitialized();
+        
+        // Input validation
+        if (isNaN(issueNumber) || issueNumber <= 0) {
+            throw new Error('Valid issue number is required');
+        }
         
         try {
             const { owner, repo } = await this.getRepoDetails();
@@ -517,9 +635,18 @@ export class GitHubAPI {
 
     /**
      * Reopen an issue
+     * 
+     * @param issueNumber The number of the issue to reopen
+     * @returns The updated issue data
+     * @throws Error if validation fails or GitHub API errors
      */
     public async reopenIssue(issueNumber: number): Promise<any> {
         this.checkInitialized();
+        
+        // Input validation
+        if (isNaN(issueNumber) || issueNumber <= 0) {
+            throw new Error('Valid issue number is required');
+        }
         
         try {
             const { owner, repo } = await this.getRepoDetails();
@@ -559,10 +686,13 @@ export class GitHubAPI {
                     const remoteUrlMatch = configContent.match(/\[remote "[^"]+"\][\s\S]*?url = (?:https:\/\/github\.com\/|git@github\.com:)([^\/]+)\/([^\.]+)(?:\.git)?/);
                     
                     if (remoteUrlMatch && remoteUrlMatch.length >= 3) {
-                        return {
-                            owner: remoteUrlMatch[1],
-                            repo: remoteUrlMatch[2]
-                        };
+                        // Sanitize the owner and repo values
+                        const owner = StringUtils.sanitizeUrlComponent(remoteUrlMatch[1]);
+                        const repo = StringUtils.sanitizeUrlComponent(remoteUrlMatch[2]);
+                        
+                        if (owner && repo) {
+                            return { owner, repo };
+                        }
                     }
                 }
             } catch (err) {
@@ -575,10 +705,13 @@ export class GitHubAPI {
                 const gitRemoteMatch = gitRemoteOutput.match(/origin\s+(?:https:\/\/github\.com\/|git@github\.com:)([^\/]+)\/([^\.]+)(?:\.git)?/);
                 
                 if (gitRemoteMatch && gitRemoteMatch.length >= 3) {
-                    return {
-                        owner: gitRemoteMatch[1],
-                        repo: gitRemoteMatch[2]
-                    };
+                    // Sanitize the owner and repo values
+                    const owner = StringUtils.sanitizeUrlComponent(gitRemoteMatch[1]);
+                    const repo = StringUtils.sanitizeUrlComponent(gitRemoteMatch[2]);
+                    
+                    if (owner && repo) {
+                        return { owner, repo };
+                    }
                 }
             } catch (err) {
                 // Silently fail and try next method
