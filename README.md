@@ -40,6 +40,8 @@ This extension contributes the following settings:
 
 - The extension currently only works with GitHub repositories.
 - Only supports the "tech-debt" label for now. Custom labels will be added in future versions.
+- Filters don't currently work in all circumstances. If you encounter issues, please report them.
+- Filters are not currently cleared.
 
 ## Supported Repository URL Formats
 
