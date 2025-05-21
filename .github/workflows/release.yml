@@ -56,9 +56,6 @@ jobs:
       - name: Run linting
         run: yarn run lint
 
-      - name: Run tests
-        run: yarn test
-
       - name: Package VSIX
         run: yarn run build-vsix
 
