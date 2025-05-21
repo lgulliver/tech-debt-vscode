@@ -25,6 +25,7 @@
 - Added detailed examples for all supported repository formats
 - Expanded usage instructions in the README
 - Updated troubleshooting section with common issues
+- Added contributing guidelines (CONTRIBUTING.md) for community involvement
 
 ### Completed Tasks for 0.3.0
 

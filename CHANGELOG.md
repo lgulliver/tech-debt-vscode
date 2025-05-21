@@ -10,6 +10,7 @@ All notable changes to the "tech-debt-extension" extension will be documented in
 - Enhanced error handling and improved overall stability
 - Expanded documentation with detailed usage instructions
 - Improved test coverage for GitHub API operations
+- Added contributing guidelines (CONTRIBUTING.md) for community involvement
 
 ## [0.2.1] - 2025-05-20
 
