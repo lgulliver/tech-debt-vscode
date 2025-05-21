@@ -13,7 +13,7 @@ A VS Code extension that allows you to create and manage GitHub issues tagged as
 
 - [ ] **Detailed View**: View issue details in a rich formatted panel within VS Code.
 - [ ] **Edit Tech Debt Issues**: Update the title and description of existing tech debt issues with an intuitive editor.
-- [ ]**Close/Reopen Issues**: Manage the state of tech debt issues directly from VS Code.
+- [ ] **Close/Reopen Issues**: Manage the state of tech debt issues directly from VS Code.
 - [ ] **Comment on Issues**: Add comments to tech debt issues without leaving VS Code using the rich comment interface.
 - [ ] **Custom Labels**: Support for custom labels beyond "tech-debt" in future versions.
 - [ ] **Enterprise Support**: Support for GitHub Enterprise URLs and custom SSH configurations.
