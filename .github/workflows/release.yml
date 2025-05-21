@@ -1,0 +1,125 @@
+# filepath: .github/workflows/release.yml
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Needed for version history
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '16.x'
+          cache: 'yarn'
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Update version in package.json
+        id: update_version
+        run: |
+          # Extract version from tag (e.g., v1.2.3 -> 1.2.3)
+          TAG_VERSION=${GITHUB_REF#refs/tags/v}
+          echo "TAG_VERSION=$TAG_VERSION" >> $GITHUB_ENV
+          
+          # Get current version
+          CURRENT_VERSION=$(node -p "require('./package.json').version")
+          echo "CURRENT_VERSION=$CURRENT_VERSION" >> $GITHUB_ENV
+          
+          if [ "$CURRENT_VERSION" != "$TAG_VERSION" ]; then
+            echo "Updating version from $CURRENT_VERSION to $TAG_VERSION"
+            # Use Node.js to update the version in package.json
+            node -e "
+              const fs = require('fs');
+              const package = JSON.parse(fs.readFileSync('./package.json'));
+              package.version = '$TAG_VERSION';
+              fs.writeFileSync('./package.json', JSON.stringify(package, null, 2) + '\n');
+            "
+          else
+            echo "Version is already up to date ($CURRENT_VERSION)"
+          fi
+          
+          echo "VSIX_FILE=tech-debt-extension-$TAG_VERSION.vsix" >> $GITHUB_ENV
+
+      - name: Build extension
+        run: yarn run compile
+
+      - name: Run tests
+        run: yarn test
+
+      - name: Package VSIX
+        run: yarn run build-vsix
+
+      - name: Install GitHub CLI
+        run: |
+          sudo apt install gh -y
+
+      - name: Extract Changelog Section
+        id: extract_changelog
+        run: |
+          # Create a temporary file for the extracted changelog section
+          CHANGELOG_SECTION=$(awk -v version="## \\[${{ env.TAG_VERSION }}\\]" '
+          BEGIN { found=0; }
+          $0 ~ version { found=1; next; }
+          found && $0 ~ /^## / { found=0; }
+          found { print $0; }
+          ' CHANGELOG.md)
+          
+          if [ -z "$CHANGELOG_SECTION" ]; then
+            echo "No specific changelog section found for version ${{ env.TAG_VERSION }}"
+            CHANGELOG_SECTION="See full changelog for details."
+          fi
+          
+          # Save the changelog section to a temporary file
+          echo "$CHANGELOG_SECTION" > changelog_section.md
+          echo "CHANGELOG_EXTRACTED=true" >> $GITHUB_ENV
+
+      - name: Create GitHub Release and Upload VSIX
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Create release notes file
+          echo "# Tech Debt Manager v${{ env.TAG_VERSION }}" > release_notes.md
+          echo "" >> release_notes.md
+          
+          # Add extracted changelog section if it exists
+          if [ -f "changelog_section.md" ]; then
+            echo "## What's Changed" >> release_notes.md
+            echo "" >> release_notes.md
+            cat changelog_section.md >> release_notes.md
+            echo "" >> release_notes.md
+          fi
+          
+          echo "## Installation" >> release_notes.md
+          echo "Download the VSIX file from this release and install it manually in VS Code:" >> release_notes.md
+          echo '1. Go to Extensions view (`Ctrl+Shift+X`)' >> release_notes.md
+          echo '2. Click the "..." menu in the top-right' >> release_notes.md
+          echo '3. Select "Install from VSIX..."' >> release_notes.md
+          echo '4. Choose the downloaded VSIX file' >> release_notes.md
+          
+          # Create the release as a draft
+          gh release create "v${{ env.TAG_VERSION }}" \
+            --title "Tech Debt Manager v${{ env.TAG_VERSION }}" \
+            --notes-file release_notes.md \
+            --draft
+            
+          # Upload the asset
+          gh release upload "v${{ env.TAG_VERSION }}" "${{ env.VSIX_FILE }}" --clobber
+      
+      - name: Commit version change
+        if: env.CURRENT_VERSION != env.TAG_VERSION
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add package.json
+          git commit -m "ci: bump version to ${{ env.TAG_VERSION }}"
+          git push
