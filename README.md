@@ -65,26 +65,6 @@ The extension uses VS Code's built-in GitHub authentication. When you use it for
 3. Click on any issue to open it in your browser.
 4. Use the filter button to filter issues by state, creator, or assignee.
 
-### Managing Tech Debt Issues
-
-#### Editing Issues
-
-1. Right-click on an issue in the Tech Debt Issues view.
-2. Select "Edit Issue" from the context menu.
-3. Edit the title and body of the issue as needed.
-4. Click "Save Changes" to update the issue.
-
-#### Closing/Reopening Issues
-
-1. Right-click on an open issue and select "Close Issue" to close it.
-2. Right-click on a closed issue and select "Reopen Issue" to reopen it.
-
-#### Commenting on Issues
-
-1. Right-click on an issue and select "Comment on Issue".
-2. Enter your comment in the editor that opens.
-3. Click "Post Comment" to add your comment to the issue.
-
 ## Development
 
 ### Release Process
