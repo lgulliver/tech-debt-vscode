@@ -107,11 +107,14 @@ export class IssueDetailsPanel {
             await this._githubApi.initialize();
             const issue = await this._githubApi.getIssueDetails(issueNumber);
             
+            // Get issue comments
+            const comments = await this._githubApi.getIssueComments(issueNumber);
+            
             // Update title
             this._panel.title = `Issue #${issue.number}: ${issue.title}`;
             
-            // Update content
-            this._panel.webview.html = this._getHtmlForWebview('', issue);
+            // Update content with issue and comments
+            this._panel.webview.html = this._getHtmlForWebview('', issue, comments);
         } catch (error) {
             this._panel.webview.html = this._getHtmlForWebview(`Error loading issue: ${error}`);
         }
@@ -131,7 +134,7 @@ export class IssueDetailsPanel {
         }
     }
 
-    private _getHtmlForWebview(message: string, issue?: any) {
+    private _getHtmlForWebview(message: string, issue?: any, comments?: any[]) {
         if (message && !issue) {
             return `<!DOCTYPE html>
             <html lang="en">
@@ -228,6 +231,46 @@ export class IssueDetailsPanel {
                     margin-top: 20px;
                     display: flex;
                 }
+                .comments-section {
+                    margin-top: 30px;
+                }
+                .comments-header {
+                    font-size: 1.2em;
+                    font-weight: bold;
+                    margin-bottom: 15px;
+                    padding-bottom: 8px;
+                    border-bottom: 1px solid var(--vscode-input-border);
+                }
+                .comment {
+                    background-color: var(--vscode-editor-inactiveSelectionBackground);
+                    border: 1px solid var(--vscode-input-border);
+                    border-radius: 4px;
+                    margin-bottom: 15px;
+                    padding: 0;
+                }
+                .comment-header {
+                    background-color: var(--vscode-titleBar-inactiveBackground);
+                    padding: 8px 12px;
+                    border-bottom: 1px solid var(--vscode-input-border);
+                    font-size: 0.9em;
+                    color: var(--vscode-descriptionForeground);
+                }
+                .comment-author {
+                    font-weight: bold;
+                    color: var(--vscode-foreground);
+                }
+                .comment-body {
+                    padding: 12px;
+                    line-height: 1.5;
+                    white-space: pre-wrap;
+                    word-wrap: break-word;
+                }
+                .no-comments {
+                    text-align: center;
+                    color: var(--vscode-descriptionForeground);
+                    font-style: italic;
+                    padding: 20px;
+                }
             </style>
         </head>
         <body>
@@ -253,6 +296,27 @@ export class IssueDetailsPanel {
                     '<button class="btn" id="closeIssue">Close Issue</button>' : 
                     '<button class="btn" id="reopenIssue">Reopen Issue</button>'}
                 <button class="btn" id="refresh">Refresh</button>
+            </div>
+            
+            <div class="comments-section">
+                <div class="comments-header">
+                    Comments (${comments && comments.length || 0})
+                </div>
+                ${comments && comments.length > 0 ? 
+                    comments.map((comment: any) => {
+                        const commentDate = new Date(comment.created_at).toLocaleString();
+                        return `
+                            <div class="comment">
+                                <div class="comment-header">
+                                    <span class="comment-author">${comment.user.login}</span>
+                                    commented on ${commentDate}
+                                </div>
+                                <div class="comment-body">${comment.body || '<em>Empty comment</em>'}</div>
+                            </div>
+                        `;
+                    }).join('') :
+                    '<div class="no-comments">No comments yet. Be the first to comment!</div>'
+                }
             </div>
 
             <script>

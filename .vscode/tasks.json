@@ -4,8 +4,10 @@
 	"version": "2.0.0",
 	"tasks": [
 		{
-			"type": "npm",
-			"script": "watch",
+			"type": "shell",
+			"label": "yarn: watch",
+			"command": "yarn",
+			"args": ["watch"],
 			"problemMatcher": "$ts-webpack-watch",
 			"isBackground": true,
 			"presentation": {
@@ -18,8 +20,10 @@
 			}
 		},
 		{
-			"type": "npm",
-			"script": "watch-tests",
+			"type": "shell",
+			"label": "yarn: watch-tests",
+			"command": "yarn",
+			"args": ["watch-tests"],
 			"problemMatcher": "$tsc-watch",
 			"isBackground": true,
 			"presentation": {
@@ -31,8 +35,8 @@
 		{
 			"label": "tasks: watch-tests",
 			"dependsOn": [
-				"npm: watch",
-				"npm: watch-tests"
+				"yarn: watch",
+				"yarn: watch-tests"
 			],
 			"problemMatcher": []
 		}

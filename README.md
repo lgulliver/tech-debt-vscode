@@ -9,13 +9,13 @@ A VS Code extension that allows you to create and manage GitHub issues tagged as
 - [x] **Easy Navigation**: Click on any issue to open it in your browser.
 - [x] **Similar Issue Detection**: Automatically detect and show similar issues when creating new tech debt items.
 - [x] **Filter Issues**: Filter tech debt issues by state (open/closed), creator, or assignee.
+- [x] **Detailed View**: View issue details in a rich formatted panel within VS Code.
+- [x] **Comment on Issues**: Add comments to tech debt issues without leaving VS Code using the rich comment interface.
 
 ## Planned Features
 
-- [ ] **Detailed View**: View issue details in a rich formatted panel within VS Code.
 - [ ] **Edit Tech Debt Issues**: Update the title and description of existing tech debt issues with an intuitive editor.
 - [ ] **Close/Reopen Issues**: Manage the state of tech debt issues directly from VS Code.
-- [ ] **Comment on Issues**: Add comments to tech debt issues without leaving VS Code using the rich comment interface.
 - [ ] **Custom Labels**: Support for custom labels beyond "tech-debt" in future versions.
 - [ ] **Enterprise Support**: Support for GitHub Enterprise URLs and custom SSH configurations.
 
@@ -66,6 +66,19 @@ The extension uses VS Code's built-in GitHub authentication. When you use it for
 2. Click the refresh button to fetch the latest issues.
 3. Click on any issue to open it in your browser.
 4. Use the filter button to filter issues by state, creator, or assignee.
+
+### Viewing Issue Details and Comments
+
+1. Right-click on any issue in the Tech Debt Issues view.
+2. Select "View Issue Details" to open a detailed panel within VS Code.
+3. The panel will show the issue description, metadata, and all existing comments.
+
+### Adding Comments to Issues
+
+1. Right-click on any issue in the Tech Debt Issues view.
+2. Select "Comment on Issue" to open the comment form.
+3. Write your comment using the rich text editor.
+4. Click "Add Comment" to post your comment to the GitHub issue.
 
 ## Development
 

@@ -555,6 +555,38 @@ export class GitHubAPI {
     }
 
     /**
+     * Get all comments for a specific issue
+     * 
+     * @param issueNumber The number of the issue to get comments for
+     * @returns Array of comment objects from GitHub API
+     * @throws Error if validation fails or GitHub API errors
+     */
+    public async getIssueComments(issueNumber: number): Promise<any[]> {
+        this.checkInitialized();
+        
+        // Input validation
+        if (isNaN(issueNumber) || issueNumber <= 0) {
+            throw new Error('Valid issue number is required');
+        }
+        
+        try {
+            const { owner, repo } = await this.getRepoDetails();
+            
+            const response = await this.octokit!.issues.listComments({
+                owner,
+                repo,
+                issue_number: issueNumber,
+                per_page: 100 // Get up to 100 comments
+            });
+
+            return response.data;
+        } catch (error) {
+            console.error('Error getting GitHub issue comments:', error);
+            throw error;
+        }
+    }
+
+    /**
      * Edit an existing issue
      * 
      * @param issueNumber The number of the issue to edit
@@ -786,4 +818,5 @@ export class GitHubAPI {
     public hasValidRepositoryConfig(): boolean {
         return Boolean(this._token && this._owner && this._repo);
     }
+
 }
