@@ -72,6 +72,14 @@ The extension uses VS Code's built-in GitHub authentication. When you use it for
 1. Right-click on any issue in the Tech Debt Issues view.
 2. Select "View Issue Details" to open a detailed panel within VS Code.
 3. The panel will show the issue description, metadata, and all existing comments.
+4. Use the action buttons to quickly add comments, edit the issue, or close/reopen it.
+
+**Available Actions in Issue Details Panel:**
+- 🌐 **Open in Browser**: View the issue on GitHub
+- 💬 **Add Comment**: Post a comment directly from VS Code  
+- ✏️ **Edit Issue**: Modify the issue title and description
+- ❌ **Close Issue** / 🔄 **Reopen Issue**: Change issue state
+- 🔄 **Refresh**: Reload the issue details and comments
 
 ### Adding Comments to Issues
 
@@ -79,6 +87,17 @@ The extension uses VS Code's built-in GitHub authentication. When you use it for
 2. Select "Comment on Issue" to open the comment form.
 3. Write your comment using the rich text editor.
 4. Click "Add Comment" to post your comment to the GitHub issue.
+
+**Note**: You can also add comments directly from the Issue Details panel by clicking the "💬 Add Comment" button.
+
+### Editing Issues
+
+1. Right-click on any issue in the Tech Debt Issues view.
+2. Select "Edit Issue" to open the edit form.
+3. Modify the title and/or description as needed.
+4. Click "Save Changes" to update the issue on GitHub.
+
+**Note**: You can also edit issues from the Issue Details panel by clicking the "✏️ Edit Issue" button.
 
 ## Development
 

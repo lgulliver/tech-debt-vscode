@@ -5,7 +5,7 @@
   "version": "0.3.5",
   "license": "MIT",
   "icon": "images/icon.png",
-  "publisher": "liamgulliver",
+  "publisher": "lgulliver",
   "author": {
     "name": "Liam Gulliver"
   },
@@ -94,6 +94,11 @@
         "command": "tech-debt-extension.clearFilters",
         "title": "Clear Filters",
         "icon": "$(clear-all)"
+      },
+      {
+        "command": "tech-debt-extension.testDirectCommentPosting",
+        "title": "🧪 Test Direct Comment Posting",
+        "icon": "$(beaker)"
       }
     ],
     "views": {
@@ -140,29 +145,29 @@
       ],
       "view/item/context": [
         {
-          "command": "tech-debt-extension.commentOnIssue",
-          "when": "view == techDebtIssues && viewItem == techDebtIssue",
-          "group": "inline"
+          "command": "tech-debt-extension.viewIssueDetails",
+          "when": "view == techDebtIssues && viewItem =~ /techDebtIssue/",
+          "group": "navigation@1"
         },
         {
-          "command": "tech-debt-extension.viewIssueDetails",
-          "when": "view == techDebtIssues && viewItem == techDebtIssue",
-          "group": "navigation"
+          "command": "tech-debt-extension.commentOnIssue",
+          "when": "view == techDebtIssues && viewItem =~ /techDebtIssue/",
+          "group": "navigation@2"
         },
         {
           "command": "tech-debt-extension.editIssue",
           "when": "view == techDebtIssues && viewItem =~ /techDebtIssue/",
-          "group": "inline"
+          "group": "navigation@3"
         },
         {
           "command": "tech-debt-extension.closeIssue",
           "when": "view == techDebtIssues && viewItem == techDebtIssue-open",
-          "group": "inline"
+          "group": "navigation@4"
         },
         {
           "command": "tech-debt-extension.reopenIssue",
           "when": "view == techDebtIssues && viewItem == techDebtIssue-closed",
-          "group": "inline"
+          "group": "navigation@4"
         }
       ],
       "commandPalette": [

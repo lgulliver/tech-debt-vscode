@@ -7,6 +7,7 @@ import { IssueFormPanel } from './issue-form-panel';
 import { IssueDetailsPanel } from './issue-details-panel';
 import { CommentFormPanel } from './comment-form-panel';
 import { EditIssueFormPanel } from './edit-issue-form-panel';
+import { CommentTestUtils } from './comment-test-utils';
 
 // Status bar item
 let statusBarItem: vscode.StatusBarItem;
@@ -100,14 +101,21 @@ export async function activate(context: vscode.ExtensionContext) {
 	// Register command to comment on an issue
 	const commentCommand = vscode.commands.registerCommand('tech-debt-extension.commentOnIssue', async (item: TechDebtIssueItem) => {
 		try {
+			console.log('Extension: commentOnIssue command triggered');
+			console.log('Extension: Item received:', item ? { number: item.issue.number, title: item.issue.title } : 'null');
+			
 			// Initialize GitHub API if needed
+			console.log('Extension: Initializing GitHub API...');
 			await githubApi.initialize();
+			console.log('Extension: GitHub API initialized successfully');
 			
 			if (!item) {
+				console.log('Extension: No item provided, showing error');
 				vscode.window.showErrorMessage('No issue selected');
 				return;
 			}
 			
+			console.log('Extension: Creating comment form panel...');
 			// Show the comment form panel
 			CommentFormPanel.createOrShow(
 				context.extensionUri, 
@@ -117,7 +125,9 @@ export async function activate(context: vscode.ExtensionContext) {
 				'',
 				techDebtIssuesProvider
 			);
+			console.log('Extension: Comment form panel created');
 		} catch (error: any) {
+			console.error('Extension: Error in commentOnIssue command:', error);
 			vscode.window.showErrorMessage(`Failed to add comment: ${error.message}`);
 		}
 	});
@@ -336,6 +346,9 @@ export async function activate(context: vscode.ExtensionContext) {
 			vscode.window.showErrorMessage(`Failed to reopen issue: ${error.message}`);
 		}
 	});
+	
+	// Register the test command for direct API testing
+	CommentTestUtils.registerTestCommand(context);
 	
 	// Add all commands and views to subscriptions
 	context.subscriptions.push(

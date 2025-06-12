@@ -166,9 +166,12 @@ export class GitHubAPI {
      * Check if the API client is initialized
      */
     private checkInitialized(): void {
+        console.log(`GitHubAPI: checkInitialized - octokit=${!!this.octokit}, owner=${this._owner}, repo=${this._repo}, token=${!!this._token}`);
         if (!this.octokit) {
+            console.log('GitHubAPI: Not initialized - throwing error');
             throw new Error('GitHub API not initialized. Call initialize() first.');
         }
+        console.log('GitHubAPI: Initialization check passed');
     }
 
     /**
@@ -420,23 +423,29 @@ export class GitHubAPI {
      * Add a comment to an existing issue
      */
     public async addCommentToIssue(issueNumber: number, comment: string): Promise<{ url: string }> {
+        console.log(`GitHubAPI: addCommentToIssue called with issueNumber=${issueNumber}, comment="${comment}"`);
         this.checkInitialized();
         
         // Input validation
         if (!comment || !comment.trim()) {
+            console.log('GitHubAPI: Comment validation failed - empty comment');
             throw new Error('Comment text is required');
         }
         
         if (isNaN(issueNumber) || issueNumber <= 0) {
+            console.log(`GitHubAPI: Issue number validation failed - invalid number: ${issueNumber}`);
             throw new Error('Valid issue number is required');
         }
         
         try {
             const { owner, repo } = await this.getRepoDetails();
+            console.log(`GitHubAPI: Repository details - owner=${owner}, repo=${repo}`);
             
             // Truncate overly long comments
             const safeComment = StringUtils.truncate(comment.trim(), 65536);
+            console.log(`GitHubAPI: Safe comment prepared, length=${safeComment.length}`);
             
+            console.log('GitHubAPI: Calling GitHub API to create comment...');
             const response = await this.octokit!.issues.createComment({
                 owner,
                 repo,
@@ -444,11 +453,17 @@ export class GitHubAPI {
                 body: safeComment
             });
 
+            console.log('GitHubAPI: GitHub API response received:', {
+                status: response.status,
+                commentId: response.data.id,
+                url: response.data.html_url
+            });
+
             return {
                 url: response.data.html_url
             };
         } catch (error) {
-            console.error('Error adding comment to GitHub issue:', error);
+            console.error('GitHubAPI: Error adding comment to GitHub issue:', error);
             throw error;
         }
     }

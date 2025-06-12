@@ -28,17 +28,21 @@ export class CommentFormPanel {
         initialContent: string = '',
         techDebtIssuesProvider: any = null
     ) {
+        console.log(`CommentFormPanel: createOrShow called for issue #${issueNumber}: ${issueTitle}`);
+        
         const column = vscode.window.activeTextEditor
             ? vscode.window.activeTextEditor.viewColumn
             : undefined;
 
         // If we already have a panel, show it.
         if (CommentFormPanel.currentPanel) {
+            console.log('CommentFormPanel: Revealing existing panel');
             CommentFormPanel.currentPanel._panel.reveal(column);
             CommentFormPanel.currentPanel.updateForm(issueNumber, issueTitle, initialContent);
             return;
         }
 
+        console.log('CommentFormPanel: Creating new webview panel');
         // Otherwise, create a new panel.
         const panel = vscode.window.createWebviewPanel(
             CommentFormPanel.viewType,
@@ -56,8 +60,11 @@ export class CommentFormPanel {
             }
         );
 
+        console.log('CommentFormPanel: Creating CommentFormPanel instance');
         CommentFormPanel.currentPanel = new CommentFormPanel(panel, extensionUri, githubApi, issueNumber, issueTitle, techDebtIssuesProvider);
+        console.log('CommentFormPanel: Updating form with initial data');
         CommentFormPanel.currentPanel.updateForm(issueNumber, issueTitle, initialContent);
+        console.log('CommentFormPanel: Panel creation complete');
     }
 
     private constructor(
@@ -68,15 +75,19 @@ export class CommentFormPanel {
         issueTitle: string,
         private readonly _techDebtIssuesProvider: any = null
     ) {
+        console.log(`CommentFormPanel: Constructor called for issue #${issueNumber}`);
+        
         this._panel = panel;
         this._extensionUri = extensionUri;
         this._githubApi = githubApi;
         this._issueNumber = issueNumber;
         this._issueTitle = issueTitle;
 
+        console.log('CommentFormPanel: Setting initial webview HTML');
         // Set the webview's initial html content
         this._panel.webview.html = this._getHtmlForWebview('');
 
+        console.log('CommentFormPanel: Setting up event listeners');
         // Listen for when the panel is disposed
         // This happens when the user closes the panel or when the panel is closed programmatically
         this._panel.onDidDispose(() => this.dispose(), null, this._disposables);
@@ -84,11 +95,14 @@ export class CommentFormPanel {
         // Handle messages from the webview
         this._panel.webview.onDidReceiveMessage(
             async (message) => {
+                console.log('CommentFormPanel: Received message from webview:', message);
                 switch (message.command) {
                     case 'postComment':
+                        console.log(`CommentFormPanel: Processing postComment command with comment: "${message.comment}"`);
                         await this.postComment(message.comment);
                         return;
                     case 'cancel':
+                        console.log('CommentFormPanel: Processing cancel command');
                         this.dispose();
                         return;
                 }
@@ -96,6 +110,8 @@ export class CommentFormPanel {
             null,
             this._disposables
         );
+        
+        console.log('CommentFormPanel: Constructor completed');
     }
 
     /**
@@ -103,14 +119,23 @@ export class CommentFormPanel {
      */
     private async postComment(comment: string): Promise<void> {
         try {
+            console.log(`CommentFormPanel: Attempting to post comment to issue #${this._issueNumber}`);
+            console.log(`Comment content: "${comment}"`);
+            
             // Validate
             if (!comment.trim()) {
+                console.log('CommentFormPanel: Comment validation failed - empty comment');
                 this._panel.webview.postMessage({ 
                     command: 'validationError', 
                     message: 'Comment cannot be empty'
                 });
                 return;
             }
+
+            // Ensure GitHub API is initialized before posting comment
+            console.log('CommentFormPanel: Ensuring GitHub API is initialized...');
+            await this._githubApi.initialize();
+            console.log('CommentFormPanel: GitHub API initialization confirmed');
 
             // Show progress indicator
             await vscode.window.withProgress(
@@ -120,7 +145,9 @@ export class CommentFormPanel {
                     cancellable: false
                 },
                 async () => {
+                    console.log('CommentFormPanel: Starting comment posting process...');
                     const commentResult = await this._githubApi.addCommentToIssue(this._issueNumber, comment);
+                    console.log('CommentFormPanel: Comment posted successfully, result:', commentResult);
                     
                     // Show success message with link to the comment
                     const viewAction = 'View Comment';
@@ -133,25 +160,20 @@ export class CommentFormPanel {
                         vscode.env.openExternal(vscode.Uri.parse(commentResult.url));
                     }
                     
-                    // Refresh the tree view after a short delay
-                    // This keeps behavior consistent with other operations
-                    await new Promise(resolve => setTimeout(resolve, 800));
-                    if (this._techDebtIssuesProvider) {
-                        this._techDebtIssuesProvider.refresh();
-                    }
-                    
-                    // Refresh the tree view after a short delay
-                    // This keeps behavior consistent with other operations
+                    // Remove duplicate refresh calls
+                    console.log('CommentFormPanel: Refreshing tree view...');
                     await new Promise(resolve => setTimeout(resolve, 800));
                     if (this._techDebtIssuesProvider) {
                         this._techDebtIssuesProvider.refresh();
                     }
                     
                     // Close the form panel
+                    console.log('CommentFormPanel: Disposing panel...');
                     this.dispose();
                 }
             );
         } catch (error: any) {
+            console.error('CommentFormPanel: Error posting comment:', error);
             vscode.window.showErrorMessage(`Failed to post comment: ${error.message}`);
         }
     }
@@ -302,84 +324,117 @@ export class CommentFormPanel {
 
             <script>
                 (function() {
-                    const vscode = acquireVsCodeApi();
+                    console.log('Webview: Script starting...');
                     
-                    // Elements
-                    const commentInput = document.getElementById('comment');
-                    const errorMessage = document.getElementById('error-message');
-                    const postBtn = document.getElementById('post-btn');
-                    const cancelBtn = document.getElementById('cancel-btn');
-                    const templateCodeBtn = document.getElementById('template-code');
-                    const templateQuoteBtn = document.getElementById('template-quote');
-                    
-                    // Handle post button click
-                    postBtn.addEventListener('click', () => {
-                        const comment = commentInput.value.trim();
+                    try {
+                        const vscode = acquireVsCodeApi();
+                        console.log('Webview: VS Code API acquired successfully');
                         
-                        // Validate
-                        if (!comment) {
-                            errorMessage.style.display = 'block';
-                            commentInput.focus();
+                        // Elements
+                        console.log('Webview: Finding DOM elements...');
+                        const commentInput = document.getElementById('comment');
+                        const errorMessage = document.getElementById('error-message');
+                        const postBtn = document.getElementById('post-btn');
+                        const cancelBtn = document.getElementById('cancel-btn');
+                        const templateCodeBtn = document.getElementById('template-code');
+                        const templateQuoteBtn = document.getElementById('template-quote');
+                        
+                        console.log('Webview: Elements found:', {
+                            commentInput: !!commentInput,
+                            errorMessage: !!errorMessage,
+                            postBtn: !!postBtn,
+                            cancelBtn: !!cancelBtn
+                        });
+                        
+                        if (!postBtn) {
+                            console.error('Webview: Post button not found!');
                             return;
                         }
                         
-                        // Send message to post comment
-                        vscode.postMessage({
-                            command: 'postComment',
-                            comment: comment
-                        });
-                    });
-                    
-                    // Handle cancel button click
-                    cancelBtn.addEventListener('click', () => {
-                        vscode.postMessage({
-                            command: 'cancel'
-                        });
-                    });
-                    
-                    // Handle code template button click
-                    templateCodeBtn.addEventListener('click', () => {
-                        const template = '\`\`\`\n// Your code here\n\`\`\`\n';
-                        insertTextAtCursor(commentInput, template);
-                    });
-                    
-                    // Handle quote template button click
-                    templateQuoteBtn.addEventListener('click', () => {
-                        const template = '> Your quote here\n\n';
-                        insertTextAtCursor(commentInput, template);
-                    });
-                    
-                    // Helper function to insert text at cursor position
-                    function insertTextAtCursor(textarea, text) {
-                        const startPos = textarea.selectionStart;
-                        const endPos = textarea.selectionEnd;
-                        
-                        textarea.value = 
-                            textarea.value.substring(0, startPos) + 
-                            text + 
-                            textarea.value.substring(endPos);
-                        
-                        // Set cursor position after inserted text
-                        textarea.selectionStart = textarea.selectionEnd = startPos + text.length;
-                        textarea.focus();
-                    }
-                    
-                    // Handle messages from the extension
-                    window.addEventListener('message', event => {
-                        const message = event.data;
-                        
-                        switch (message.command) {
-                            case 'validationError':
-                                // Show validation error
-                                errorMessage.textContent = message.message;
+                        // Handle post button click
+                        postBtn.addEventListener('click', () => {
+                            console.log('Webview: Post button clicked');
+                            const comment = commentInput.value.trim();
+                            console.log('Webview: Comment content:', comment);
+                            
+                            // Validate
+                            if (!comment) {
+                                console.log('Webview: Comment validation failed - empty comment');
                                 errorMessage.style.display = 'block';
                                 commentInput.focus();
-                                break;
+                                return;
+                            }
+                            
+                            console.log('Webview: Sending postComment message to extension');
+                            // Send message to post comment
+                            vscode.postMessage({
+                                command: 'postComment',
+                                comment: comment
+                            });
+                            console.log('Webview: postMessage sent successfully');
+                        });
+                        console.log('Webview: Post button event listener added');
+                        
+                        // Handle cancel button click
+                        cancelBtn.addEventListener('click', () => {
+                            console.log('Webview: Cancel button clicked');
+                            vscode.postMessage({
+                                command: 'cancel'
+                            });
+                        });
+                        console.log('Webview: Cancel button event listener added');
+                        
+                        // Handle code template button click
+                        templateCodeBtn.addEventListener('click', () => {
+                            const template = '\`\`\`\n// Your code here\n\`\`\`\n';
+                            insertTextAtCursor(commentInput, template);
+                        });
+                        
+                        // Handle quote template button click
+                        templateQuoteBtn.addEventListener('click', () => {
+                            const template = '> Your quote here\n\n';
+                            insertTextAtCursor(commentInput, template);
+                        });
+                        
+                        // Helper function to insert text at cursor position
+                        function insertTextAtCursor(textarea, text) {
+                            const startPos = textarea.selectionStart;
+                            const endPos = textarea.selectionEnd;
+                            
+                            textarea.value = 
+                                textarea.value.substring(0, startPos) + 
+                                text + 
+                                textarea.value.substring(endPos);
+                            
+                            // Set cursor position after inserted text
+                            textarea.selectionStart = textarea.selectionEnd = startPos + text.length;
+                            textarea.focus();
                         }
-                    });
-                    
-                    // Set focus to comment textarea
-                    commentInput.focus();
+                        
+                        // Handle messages from the extension
+                        window.addEventListener('message', event => {
+                            console.log('Webview: Received message from extension:', event.data);
+                            const message = event.data;
+                            
+                            switch (message.command) {
+                                case 'validationError':
+                                    console.log('Webview: Showing validation error:', message.message);
+                                    // Show validation error
+                                    errorMessage.textContent = message.message;
+                                    errorMessage.style.display = 'block';
+                                    commentInput.focus();
+                                    break;
+                            }
+                        });
+                        
+                        // Set focus to comment textarea
+                        console.log('Webview: Setting focus to comment input');
+                        commentInput.focus();
+                        console.log('Webview: Initialization completed successfully');
+                        
+                    } catch (error) {
+                        console.error('Webview: Error during initialization:', error);
+                    }
                 }())
             </script>
         </body>

@@ -61,7 +61,7 @@ export class IssueDetailsPanel {
 
         // Handle messages from the webview
         this._panel.webview.onDidReceiveMessage(
-            message => {
+            async message => {
                 switch (message.command) {
                     case 'openInBrowser':
                         vscode.env.openExternal(vscode.Uri.parse(message.url));
@@ -72,9 +72,17 @@ export class IssueDetailsPanel {
                         });
                         return;
                     case 'editIssue':
-                        vscode.commands.executeCommand('tech-debt-extension.editIssue', {
-                            issue: { number: message.issueNumber, title: message.issueTitle, state: message.issueState }
-                        });
+                        // Create a mock TechDebtIssueItem-like object
+                        const editItem = {
+                            issue: {
+                                number: message.issueNumber,
+                                title: message.issueTitle,
+                                body: message.issueBody || '',
+                                state: message.issueState
+                            }
+                        };
+                        
+                        vscode.commands.executeCommand('tech-debt-extension.editIssue', editItem);
                         return;
                     case 'closeIssue':
                         vscode.commands.executeCommand('tech-debt-extension.closeIssue', {
@@ -222,14 +230,19 @@ export class IssueDetailsPanel {
                     padding: 8px 12px;
                     cursor: pointer;
                     border-radius: 2px;
-                    margin-right: 10px;
                 }
                 .btn:hover {
                     background-color: var(--vscode-button-hoverBackground);
                 }
+                .btn-icon {
+                    margin-right: 6px;
+                    font-size: 0.9em;
+                }
                 .actions {
                     margin-top: 20px;
                     display: flex;
+                    flex-wrap: wrap;
+                    gap: 10px;
                 }
                 .comments-section {
                     margin-top: 30px;
@@ -289,13 +302,21 @@ export class IssueDetailsPanel {
                 ${issue.body ? issue.body.replace(/\n/g, '<br>') : '<em>No description provided</em>'}
             </div>
             <div class="actions">
-                <button class="btn" id="openInBrowser">Open in Browser</button>
-                <button class="btn" id="addComment">Add Comment</button>
-                <button class="btn" id="editIssue">Edit Issue</button>
+                <button class="btn" id="openInBrowser">
+                    <span class="btn-icon">🌐</span> Open in Browser
+                </button>
+                <button class="btn" id="addComment">
+                    <span class="btn-icon">💬</span> Add Comment
+                </button>
+                <button class="btn" id="editIssue">
+                    <span class="btn-icon">✏️</span> Edit Issue
+                </button>
                 ${issue.state === 'open' ? 
-                    '<button class="btn" id="closeIssue">Close Issue</button>' : 
-                    '<button class="btn" id="reopenIssue">Reopen Issue</button>'}
-                <button class="btn" id="refresh">Refresh</button>
+                    '<button class="btn" id="closeIssue"><span class="btn-icon">❌</span> Close Issue</button>' : 
+                    '<button class="btn" id="reopenIssue"><span class="btn-icon">🔄</span> Reopen Issue</button>'}
+                <button class="btn" id="refresh">
+                    <span class="btn-icon">🔄</span> Refresh
+                </button>
             </div>
             
             <div class="comments-section">
@@ -343,7 +364,8 @@ export class IssueDetailsPanel {
                             command: 'editIssue',
                             issueNumber: ${issue.number},
                             issueTitle: '${issue.title.replace(/'/g, "\\'")}',
-                            issueState: '${issue.state}'
+                            issueState: '${issue.state}',
+                            issueBody: '${(issue.body || '').replace(/'/g, "\\'").replace(/\n/g, '\\n')}'
                         });
                     });
 
