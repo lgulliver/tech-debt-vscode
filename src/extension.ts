@@ -122,9 +122,6 @@ export async function activate(context: vscode.ExtensionContext) {
 		}
 	});
 
-	// Import the IssueDetailsPanel
-	const { IssueDetailsPanel } = require('./issue-details-panel');
-	
 	// Register command to view issue details
 	const viewDetailsCommand = vscode.commands.registerCommand('tech-debt-extension.viewIssueDetails', async (item: TechDebtIssueItem) => {
 		try {

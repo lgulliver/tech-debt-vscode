@@ -1,50 +1,61 @@
 import * as vscode from 'vscode';
 import { GitHubAPI } from './github-api';
+import { StringUtils } from './utils/string-utils';
+
+type IssueLabel = { name: string; color?: string };
+type IssueAssignee = { login: string };
+type IssueMilestone = { title: string } | null;
+
+interface IssueDetails {
+    number: number;
+    title: string;
+    body?: string | null;
+    html_url: string;
+    state: 'open' | 'closed';
+    user?: { login?: string | null } | null;
+    created_at?: string;
+    updated_at?: string;
+    labels?: IssueLabel[];
+    assignees?: IssueAssignee[];
+    milestone?: IssueMilestone;
+    comments?: number;
+}
 
 /**
- * Manages tech debt issue detail webview panels
+ * Manages tech debt issue detail webview panels.
  */
 export class IssueDetailsPanel {
-    /**
-     * Track the currently panel. Only allow a single panel to exist at a time.
-     */
     public static currentPanel: IssueDetailsPanel | undefined;
 
     private static readonly viewType = 'techDebtIssueDetails';
 
     private readonly _panel: vscode.WebviewPanel;
     private readonly _extensionUri: vscode.Uri;
-    private _disposables: vscode.Disposable[] = [];
-    private _githubApi: GitHubAPI;
+    private readonly _disposables: vscode.Disposable[] = [];
+    private readonly _githubApi: GitHubAPI;
 
     public static createOrShow(extensionUri: vscode.Uri, issueNumber: number, githubApi: GitHubAPI) {
-        const column = vscode.window.activeTextEditor
-            ? vscode.window.activeTextEditor.viewColumn
-            : undefined;
+        const column = vscode.window.activeTextEditor?.viewColumn;
 
-        // If we already have a panel, show it.
         if (IssueDetailsPanel.currentPanel) {
             IssueDetailsPanel.currentPanel._panel.reveal(column);
-            IssueDetailsPanel.currentPanel.update(issueNumber);
+            void IssueDetailsPanel.currentPanel.update(issueNumber);
             return;
         }
 
-        // Otherwise, create a new panel.
         const panel = vscode.window.createWebviewPanel(
             IssueDetailsPanel.viewType,
             'Tech Debt Issue Details',
             column || vscode.ViewColumn.One,
             {
-                // Enable javascript in the webview
                 enableScripts: true,
-                
-                // Restrict the webview to only load resources from our extension's directory
+                retainContextWhenHidden: true,
                 localResourceRoots: [extensionUri]
             }
         );
 
         IssueDetailsPanel.currentPanel = new IssueDetailsPanel(panel, extensionUri, githubApi);
-        IssueDetailsPanel.currentPanel.update(issueNumber);
+        void IssueDetailsPanel.currentPanel.update(issueNumber);
     }
 
     private constructor(panel: vscode.WebviewPanel, extensionUri: vscode.Uri, githubApi: GitHubAPI) {
@@ -52,14 +63,9 @@ export class IssueDetailsPanel {
         this._extensionUri = extensionUri;
         this._githubApi = githubApi;
 
-        // Set the webview's initial html content
-        this._panel.webview.html = this._getHtmlForWebview('Loading issue details...');
+        this._panel.webview.html = this._renderLoadingState('Loading issue details...');
 
-        // Listen for when the panel is disposed
-        // This happens when the user closes the panel or when the panel is closed programmatically
         this._panel.onDidDispose(() => this.dispose(), null, this._disposables);
-
-        // Handle messages from the webview
         this._panel.webview.onDidReceiveMessage(
             message => {
                 switch (message.command) {
@@ -67,29 +73,29 @@ export class IssueDetailsPanel {
                         vscode.env.openExternal(vscode.Uri.parse(message.url));
                         return;
                     case 'addComment':
-                        vscode.commands.executeCommand('tech-debt-extension.commentOnIssue', {
+                        void vscode.commands.executeCommand('tech-debt-extension.commentOnIssue', {
                             issue: { number: message.issueNumber, title: message.issueTitle }
                         });
                         return;
                     case 'editIssue':
-                        vscode.commands.executeCommand('tech-debt-extension.editIssue', {
+                        void vscode.commands.executeCommand('tech-debt-extension.editIssue', {
                             issue: { number: message.issueNumber, title: message.issueTitle, state: message.issueState }
                         });
                         return;
                     case 'closeIssue':
-                        vscode.commands.executeCommand('tech-debt-extension.closeIssue', {
+                        void vscode.commands.executeCommand('tech-debt-extension.closeIssue', {
                             issue: { number: message.issueNumber, title: message.issueTitle }
                         });
-                        this.dispose(); // Close the panel as the issue will be updated
+                        this.dispose();
                         return;
                     case 'reopenIssue':
-                        vscode.commands.executeCommand('tech-debt-extension.reopenIssue', {
+                        void vscode.commands.executeCommand('tech-debt-extension.reopenIssue', {
                             issue: { number: message.issueNumber, title: message.issueTitle }
                         });
-                        this.dispose(); // Close the panel as the issue will be updated
+                        this.dispose();
                         return;
                     case 'refresh':
-                        this.update(message.issueNumber);
+                        void this.update(message.issueNumber);
                         return;
                 }
             },
@@ -99,69 +105,43 @@ export class IssueDetailsPanel {
     }
 
     public async update(issueNumber: number) {
-        // Show loading message
-        this._panel.webview.html = this._getHtmlForWebview('Loading issue details...');
-        
+        this._panel.webview.html = this._renderLoadingState('Loading issue details...');
+
         try {
-            // Get issue details
             await this._githubApi.initialize();
             const issue = await this._githubApi.getIssueDetails(issueNumber);
-            
-            // Update title
-            this._panel.title = `Issue #${issue.number}: ${issue.title}`;
-            
-            // Update content
+
+            this._panel.title = `Issue #${issue.number}: ${StringUtils.truncate(issue.title || 'Untitled issue', 80)}`;
             this._panel.webview.html = this._getHtmlForWebview('', issue);
-        } catch (error) {
-            this._panel.webview.html = this._getHtmlForWebview(`Error loading issue: ${error}`);
+        } catch (error: any) {
+            this._panel.webview.html = this._renderErrorState(`Error loading issue: ${error?.message || error}`);
         }
     }
 
     public dispose() {
         IssueDetailsPanel.currentPanel = undefined;
 
-        // Clean up our resources
         this._panel.dispose();
 
         while (this._disposables.length) {
-            const x = this._disposables.pop();
-            if (x) {
-                x.dispose();
-            }
+            const disposable = this._disposables.pop();
+            disposable?.dispose();
         }
     }
 
-    private _getHtmlForWebview(message: string, issue?: any) {
-        if (message && !issue) {
-            return `<!DOCTYPE html>
-            <html lang="en">
-            <head>
-                <meta charset="UTF-8">
-                <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <title>Tech Debt Issue</title>
-                <style>
-                    body {
-                        font-family: var(--vscode-font-family);
-                        font-size: var(--vscode-font-size);
-                        color: var(--vscode-foreground);
-                        background-color: var(--vscode-editor-background);
-                        padding: 20px;
-                    }
-                    .message {
-                        padding: 20px;
-                        text-align: center;
-                    }
-                </style>
-            </head>
-            <body>
-                <div class="message">${message}</div>
-            </body>
-            </html>`;
+    private _getHtmlForWebview(message: string, issue?: IssueDetails): string {
+        if (!issue) {
+            return this._renderStatusPage(message);
         }
 
-        const createdDate = new Date(issue.created_at).toLocaleString();
-        const updatedDate = new Date(issue.updated_at).toLocaleString();
-        
+        const createdDate = this._formatDate(issue.created_at);
+        const updatedDate = this._formatDate(issue.updated_at);
+        const labels = issue.labels ?? [];
+        const assignees = issue.assignees ?? [];
+        const milestone = issue.milestone?.title?.trim();
+        const commentCount = typeof issue.comments === 'number' ? issue.comments : 0;
+        const issueData = this._serializeIssue(issue);
+
         return `<!DOCTYPE html>
         <html lang="en">
         <head>
@@ -174,43 +154,106 @@ export class IssueDetailsPanel {
                     font-size: var(--vscode-font-size);
                     color: var(--vscode-foreground);
                     background-color: var(--vscode-editor-background);
-                    padding: 20px;
+                    margin: 0;
+                    padding: 24px;
+                    max-width: 980px;
                 }
-                h1 {
-                    font-size: 1.5em;
-                    margin-bottom: 10px;
-                    color: var(--vscode-editor-foreground);
+                .page {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 18px;
                 }
                 .header {
                     display: flex;
                     justify-content: space-between;
+                    gap: 16px;
+                    align-items: flex-start;
+                }
+                h1 {
+                    font-size: 1.5em;
+                    margin: 0;
+                    line-height: 1.3;
+                    overflow-wrap: anywhere;
+                }
+                .number {
+                    color: var(--vscode-descriptionForeground);
+                    white-space: nowrap;
+                }
+                .card {
+                    background: var(--vscode-editor-inactiveSelectionBackground);
+                    border-radius: 8px;
+                    padding: 16px;
+                }
+                .meta-grid {
+                    display: grid;
+                    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+                    gap: 12px;
+                    margin-top: 12px;
+                }
+                .meta-item {
+                    padding: 10px 12px;
+                    border-radius: 6px;
+                    background: color-mix(in srgb, var(--vscode-editor-background) 82%, transparent);
+                }
+                .meta-label {
+                    display: block;
+                    margin-bottom: 4px;
+                    color: var(--vscode-descriptionForeground);
+                    font-size: 0.85em;
+                    text-transform: uppercase;
+                    letter-spacing: 0.04em;
+                }
+                .meta-value {
+                    overflow-wrap: anywhere;
+                }
+                .badge {
+                    display: inline-flex;
                     align-items: center;
-                    margin-bottom: 20px;
+                    gap: 6px;
+                    border-radius: 999px;
+                    padding: 4px 10px;
+                    font-size: 0.85em;
+                    font-weight: 600;
+                    white-space: nowrap;
                 }
-                .issue-number {
-                    color: var(--vscode-descriptionForeground);
-                    font-size: 1.2em;
+                .badge-open {
+                    background: var(--vscode-testing-iconPassed);
+                    color: var(--vscode-editor-background);
                 }
-                .meta {
-                    color: var(--vscode-descriptionForeground);
-                    margin-bottom: 20px;
-                    font-size: 0.9em;
+                .badge-closed {
+                    background: var(--vscode-errorForeground);
+                    color: var(--vscode-editor-background);
+                }
+                .labels, .people {
+                    display: flex;
+                    flex-wrap: wrap;
+                    gap: 8px;
                 }
                 .label {
-                    display: inline-block;
-                    background-color: var(--vscode-badge-background);
-                    color: var(--vscode-badge-foreground);
-                    padding: 2px 8px;
-                    border-radius: 4px;
-                    margin-right: 5px;
+                    display: inline-flex;
+                    align-items: center;
+                    border-radius: 999px;
+                    padding: 4px 10px;
                     font-size: 0.85em;
+                    font-weight: 600;
+                    color: #fff;
+                    overflow-wrap: anywhere;
+                }
+                .label-empty {
+                    color: var(--vscode-descriptionForeground);
                 }
                 .body {
-                    margin-top: 20px;
-                    padding: 10px;
-                    background-color: var(--vscode-editor-inactiveSelectionBackground);
-                    border-radius: 4px;
-                    line-height: 1.5;
+                    white-space: pre-wrap;
+                    line-height: 1.55;
+                }
+                .body-empty {
+                    color: var(--vscode-descriptionForeground);
+                    font-style: italic;
+                }
+                .actions {
+                    display: flex;
+                    flex-wrap: wrap;
+                    gap: 8px;
                 }
                 .btn {
                     background-color: var(--vscode-button-background);
@@ -218,98 +261,231 @@ export class IssueDetailsPanel {
                     border: none;
                     padding: 8px 12px;
                     cursor: pointer;
-                    border-radius: 2px;
-                    margin-right: 10px;
+                    border-radius: 4px;
                 }
                 .btn:hover {
                     background-color: var(--vscode-button-hoverBackground);
                 }
-                .actions {
-                    margin-top: 20px;
-                    display: flex;
+                .status-page {
+                    display: grid;
+                    place-items: center;
+                    min-height: 40vh;
+                    text-align: center;
+                    color: var(--vscode-descriptionForeground);
                 }
             </style>
         </head>
         <body>
-            <div class="header">
-                <h1>${issue.title}</h1>
-                <span class="issue-number">#${issue.number}</span>
-            </div>
-            <div class="meta">
-                <div>Created by <strong>${issue.user.login}</strong> on ${createdDate}</div>
-                <div>Last updated on ${updatedDate}</div>
-                <div style="margin-top: 10px;">
-                    ${issue.labels.map((label: any) => `<span class="label">${label.name}</span>`).join('')}
+            <div class="page">
+                <div class="header">
+                    <div>
+                        <h1>${this._escapeHtml(issue.title)}</h1>
+                        <div class="number">#${issue.number}</div>
+                    </div>
+                    <span class="badge ${issue.state === 'open' ? 'badge-open' : 'badge-closed'}">
+                        ${issue.state === 'open' ? 'Open' : 'Closed'}
+                    </span>
+                </div>
+
+                <div class="card">
+                    <div class="meta-grid">
+                        <div class="meta-item">
+                            <span class="meta-label">Author</span>
+                            <span class="meta-value">${this._escapeHtml(issue.user?.login || 'Unknown')}</span>
+                        </div>
+                        <div class="meta-item">
+                            <span class="meta-label">Created</span>
+                            <span class="meta-value">${this._escapeHtml(createdDate)}</span>
+                        </div>
+                        <div class="meta-item">
+                            <span class="meta-label">Updated</span>
+                            <span class="meta-value">${this._escapeHtml(updatedDate)}</span>
+                        </div>
+                        <div class="meta-item">
+                            <span class="meta-label">Comments</span>
+                            <span class="meta-value">${commentCount}</span>
+                        </div>
+                        <div class="meta-item">
+                            <span class="meta-label">Milestone</span>
+                            <span class="meta-value">${this._escapeHtml(milestone || 'None')}</span>
+                        </div>
+                        <div class="meta-item">
+                            <span class="meta-label">Assignees</span>
+                            <div class="people">
+                                ${assignees.length > 0
+                                    ? assignees.map(assignee => `<span>${this._escapeHtml(assignee.login)}</span>`).join('')
+                                    : '<span class="label-empty">None</span>'}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 16px;">
+                        <div class="meta-label">Labels</div>
+                        <div class="labels">
+                            ${labels.length > 0
+                                ? labels.map(label => {
+                                    const safeColor = this._escapeLabelColor(label.color);
+                                    return `<span class="label" style="background-color: #${safeColor};">${this._escapeHtml(label.name)}</span>`;
+                                }).join('')
+                                : '<span class="label-empty">No labels</span>'}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="meta-label">Description</div>
+                    <div class="body">
+                        ${issue.body ? this._escapeHtml(issue.body) : '<div class="body-empty">No description provided</div>'}
+                    </div>
+                </div>
+
+                <div class="actions">
+                    <button class="btn" id="openInBrowser">Open in Browser</button>
+                    <button class="btn" id="addComment">Add Comment</button>
+                    <button class="btn" id="editIssue">Edit Issue</button>
+                    ${issue.state === 'open'
+                        ? '<button class="btn" id="closeIssue">Close Issue</button>'
+                        : '<button class="btn" id="reopenIssue">Reopen Issue</button>'}
+                    <button class="btn" id="refresh">Refresh</button>
                 </div>
             </div>
-            <div class="body">
-                ${issue.body ? issue.body.replace(/\n/g, '<br>') : '<em>No description provided</em>'}
-            </div>
-            <div class="actions">
-                <button class="btn" id="openInBrowser">Open in Browser</button>
-                <button class="btn" id="addComment">Add Comment</button>
-                <button class="btn" id="editIssue">Edit Issue</button>
-                ${issue.state === 'open' ? 
-                    '<button class="btn" id="closeIssue">Close Issue</button>' : 
-                    '<button class="btn" id="reopenIssue">Reopen Issue</button>'}
-                <button class="btn" id="refresh">Refresh</button>
-            </div>
 
+            <script id="issue-data" type="application/json">${this._escapeHtml(JSON.stringify(issueData))}</script>
             <script>
                 (function() {
                     const vscode = acquireVsCodeApi();
-                    
-                    document.getElementById('openInBrowser').addEventListener('click', () => {
+                    const issue = JSON.parse(document.getElementById('issue-data').textContent || '{}');
+
+                    const onClick = (id, handler) => {
+                        const element = document.getElementById(id);
+                        if (element) {
+                            element.addEventListener('click', handler);
+                        }
+                    };
+
+                    onClick('openInBrowser', () => {
                         vscode.postMessage({
                             command: 'openInBrowser',
-                            url: '${issue.html_url}'
-                        });
-                    });
-                    
-                    document.getElementById('addComment').addEventListener('click', () => {
-                        vscode.postMessage({
-                            command: 'addComment',
-                            issueNumber: ${issue.number},
-                            issueTitle: '${issue.title.replace(/'/g, "\\'")}'
-                        });
-                    });
-                    
-                    document.getElementById('editIssue').addEventListener('click', () => {
-                        vscode.postMessage({
-                            command: 'editIssue',
-                            issueNumber: ${issue.number},
-                            issueTitle: '${issue.title.replace(/'/g, "\\'")}',
-                            issueState: '${issue.state}'
+                            url: issue.html_url
                         });
                     });
 
-                    ${issue.state === 'open' ? `
-                    document.getElementById('closeIssue').addEventListener('click', () => {
+                    onClick('addComment', () => {
+                        vscode.postMessage({
+                            command: 'addComment',
+                            issueNumber: issue.number,
+                            issueTitle: issue.title
+                        });
+                    });
+
+                    onClick('editIssue', () => {
+                        vscode.postMessage({
+                            command: 'editIssue',
+                            issueNumber: issue.number,
+                            issueTitle: issue.title,
+                            issueState: issue.state
+                        });
+                    });
+
+                    onClick('closeIssue', () => {
                         vscode.postMessage({
                             command: 'closeIssue',
-                            issueNumber: ${issue.number},
-                            issueTitle: '${issue.title.replace(/'/g, "\\'")}',
+                            issueNumber: issue.number,
+                            issueTitle: issue.title
                         });
                     });
-                    ` : `
-                    document.getElementById('reopenIssue').addEventListener('click', () => {
+
+                    onClick('reopenIssue', () => {
                         vscode.postMessage({
                             command: 'reopenIssue',
-                            issueNumber: ${issue.number},
-                            issueTitle: '${issue.title.replace(/'/g, "\\'")}',
+                            issueNumber: issue.number,
+                            issueTitle: issue.title
                         });
                     });
-                    `}
-                    
-                    document.getElementById('refresh').addEventListener('click', () => {
+
+                    onClick('refresh', () => {
                         vscode.postMessage({
                             command: 'refresh',
-                            issueNumber: ${issue.number}
+                            issueNumber: issue.number
                         });
                     });
                 }())
             </script>
         </body>
         </html>`;
+    }
+
+    private _renderStatusPage(message: string): string {
+        return `<!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Tech Debt Issue Details</title>
+            <style>
+                body {
+                    font-family: var(--vscode-font-family);
+                    font-size: var(--vscode-font-size);
+                    color: var(--vscode-foreground);
+                    background-color: var(--vscode-editor-background);
+                    margin: 0;
+                    padding: 24px;
+                }
+                .status-page {
+                    display: grid;
+                    place-items: center;
+                    min-height: 40vh;
+                    text-align: center;
+                    color: var(--vscode-descriptionForeground);
+                }
+            </style>
+        </head>
+        <body>
+            <div class="status-page">${this._escapeHtml(message)}</div>
+        </body>
+        </html>`;
+    }
+
+    private _renderLoadingState(message: string): string {
+        return this._renderStatusPage(message);
+    }
+
+    private _renderErrorState(message: string): string {
+        return this._renderStatusPage(message);
+    }
+
+    private _formatDate(value?: string): string {
+        if (!value) {
+            return 'Unknown';
+        }
+
+        const date = new Date(value);
+        return Number.isNaN(date.getTime()) ? 'Unknown' : date.toLocaleString();
+    }
+
+    private _serializeIssue(issue: IssueDetails): IssueDetails {
+        return {
+            number: issue.number,
+            title: issue.title,
+            body: issue.body ?? '',
+            html_url: issue.html_url,
+            state: issue.state,
+            user: issue.user ? { login: issue.user.login ?? null } : null,
+            created_at: issue.created_at,
+            updated_at: issue.updated_at,
+            labels: (issue.labels ?? []).map(label => ({ name: label.name, color: label.color })),
+            assignees: (issue.assignees ?? []).map(assignee => ({ login: assignee.login })),
+            milestone: issue.milestone ? { title: issue.milestone.title } : null,
+            comments: issue.comments ?? 0
+        };
+    }
+
+    private _escapeLabelColor(color?: string): string {
+        const safe = (color || '6a737d').replace(/[^0-9a-f]/gi, '').slice(0, 6);
+        return safe.padEnd(6, '0');
+    }
+
+    private _escapeHtml(text: string): string {
+        return StringUtils.escapeHtml(text);
     }
 }
